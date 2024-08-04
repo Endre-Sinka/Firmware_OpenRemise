@@ -94,22 +94,24 @@ esp_err_t init(BaseType_t xCoreID) {
 
   //
   ESP_ERROR_CHECK(set_current_limit(CurrentLimit::_500mA));
-  assert(get_current_limit() == CurrentLimit::_500mA);
+  if (get_current_limit() != CurrentLimit::_500mA) assert(false);
 
-  assert(xTaskCreatePinnedToCore(dcc::task_function,
-                                 dcc::task.name,
-                                 dcc::task.stack_depth,
-                                 NULL,
-                                 dcc::task.priority,
-                                 &dcc::task.handle,
-                                 xCoreID));
-  assert(xTaskCreatePinnedToCore(mdu::task_function,
-                                 mdu::task.name,
-                                 mdu::task.stack_depth,
-                                 NULL,
-                                 mdu::task.priority,
-                                 &mdu::task.handle,
-                                 xCoreID));
+  if (!xTaskCreatePinnedToCore(dcc::task_function,
+                               dcc::task.name,
+                               dcc::task.stack_depth,
+                               NULL,
+                               dcc::task.priority,
+                               &dcc::task.handle,
+                               xCoreID))
+    assert(false);
+  if (!xTaskCreatePinnedToCore(mdu::task_function,
+                               mdu::task.name,
+                               mdu::task.stack_depth,
+                               NULL,
+                               mdu::task.priority,
+                               &mdu::task.handle,
+                               xCoreID))
+    assert(false);
 
   return ESP_OK;
 }

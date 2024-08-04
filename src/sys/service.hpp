@@ -15,7 +15,6 @@ namespace sys {
 class Service {
 public:
   http::Response getRequest(http::Request const& req);
-  http::Response postRequest(http::Request const& req);
 };
 
 }  // namespace sys

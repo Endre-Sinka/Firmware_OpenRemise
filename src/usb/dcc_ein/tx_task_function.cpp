@@ -7,9 +7,9 @@
 #include "tx_task_function.hpp"
 #include <algorithm>
 #include <charconv>
-#include <dcc_ein/dcc_ein.hpp>
 #include <span>
 #include <string_view>
+#include <ulf/dcc_ein.hpp>
 #include "log.h"
 
 namespace usb::dcc_ein {
@@ -20,12 +20,12 @@ namespace {
 ///
 /// \return Addressed BiDi datagram received from out::track::rx_queue
 /// \return std::nullopt on timeout
-std::optional<out::track::RxQueue::value_type> receive_addressed_datagram() {
-  out::track::RxQueue::value_type addr_datagram;
-  if (xQueueReceive(out::track::rx_queue.handle,
-                    &addr_datagram,
-                    pdMS_TO_TICKS(tx_task.timeout)))
-    return addr_datagram;
+std::optional<ulf::dcc_ein::AddressedDatagram> receive_addressed_datagram() {
+  out::track::RxQueue::value_type item;
+  if (xQueueReceive(
+        out::track::rx_queue.handle, &item, pdMS_TO_TICKS(tx_task.timeout)))
+    return ulf::dcc_ein::AddressedDatagram{
+      .addr = dcc::decode_address(item.packet), .datagram = item.datagram};
   else return std::nullopt;
 }
 
@@ -38,35 +38,35 @@ std::optional<out::track::RxQueue::value_type> receive_addressed_datagram() {
 /// \param  addr_datagram Addressed BiDi datagram received from
 ///                       out::track::rx_queue
 void transmit_addressed_datagram(
-  out::track::RxQueue::value_type const& addr_datagram) {
-  if (auto const str{
-        ::dcc_ein::rx::addressed_datagram2sendbidi_str(addr_datagram)})
-    xStreamBufferSend(tx_stream_buffer.handle,
-                      data(*str),
-                      size(*str),
-                      pdMS_TO_TICKS(tx_task.timeout));
+  ulf::dcc_ein::AddressedDatagram const& addr_datagram) {
+  auto const str{ulf::dcc_ein::addressed_datagram2sendbidi_str(addr_datagram)};
+  xStreamBufferSend(tx_stream_buffer.handle,
+                    data(str),
+                    size(str),
+                    pdMS_TO_TICKS(tx_task.timeout));
 }
 
 /// Actual usb::dcc_ein::tx_task loop
 void loop() {
-  while (eTaskGetState(rx_task.handle) < eSuspended) {
+  while (eTaskGetState(rx_task.handle) < eSuspended)
     if (auto const addr_datagram{receive_addressed_datagram()};
         addr_datagram && std::ranges::any_of(addr_datagram->datagram,
                                              [](uint8_t b) { return b; }))
       transmit_addressed_datagram(*addr_datagram);
-  }
 }
 
 }  // namespace
 
 /// DCC_EIN transmit task function
 ///
-/// Immediatly suspends itself after creation. It's only resumed after
+/// Immediately suspends itself after creation. It's only resumed after
 /// usb::rx_task_function receives a "DCC_EIN\r" protocol entry string.
 void tx_task_function(void*) {
   for (;;) {
     LOGI_TASK_SUSPEND(tx_task.handle);
+
     loop();
+
     LOGI_TASK_RESUME(usb::rx_task.handle);
   }
 }

@@ -24,10 +24,10 @@ void adc_task_function(void*) {
                                            size(conversion_frame),
                                            &bytes_received,
                                            adc_task.timeout)}) {
-      LOGE("%s", esp_err_to_name(err));
+      LOGE("adc_continuous_read failed %s", esp_err_to_name(err));
       continue;
     } else if (bytes_received != size(conversion_frame)) {
-      LOGE("conversion length not equal buffer size");
+      LOGE("Conversion length not equal buffer size");
       continue;
     }
 

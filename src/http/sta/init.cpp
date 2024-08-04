@@ -1,4 +1,4 @@
-/// Initialize HTTP server for station
+/// Initialize HTTP service for station
 ///
 /// \file   http/sta/init.cpp
 /// \author Vincent Hamp
@@ -7,13 +7,13 @@
 #include "init.hpp"
 #include <memory>
 #include <span>
-#include "server.hpp"
+#include "service.hpp"
 
 namespace http::sta {
 
 ///
 esp_err_t init() {
-  server = std::make_shared<Server>();
+  service = std::make_shared<Service>();
   return ESP_OK;
 }
 

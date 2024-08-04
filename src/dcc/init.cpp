@@ -1,39 +1,25 @@
 #include "init.hpp"
 #include <memory>
-#include "http/sta/server.hpp"
+#include "http/sta/service.hpp"
 #include "service.hpp"
+#include "z21/service.hpp"
 
 namespace dcc {
 
-namespace {
-
-std::shared_ptr<Service> service;
-
-}  // namespace
-
 ///
 esp_err_t init(BaseType_t xCoreID) {
-  using http::sta::server;
-
-  if (server) {
+  if (http::sta::service) {
     service = std::make_shared<Service>(xCoreID);
-    server->subscribe({.uri = "/dcc/locos/", .method = HTTP_DELETE},
-                      service,
-                      &Service::locosDeleteRequest);
-    server->subscribe({.uri = "/dcc/locos/", .method = HTTP_GET},
-                      service,
-                      &Service::locosGetRequest);
-    server->subscribe({.uri = "/dcc/locos/", .method = HTTP_PUT},
-                      service,
-                      &Service::locosPutRequest);
-    server->subscribe({.uri = "/dcc/service/", .method = HTTP_GET},
-                      service,
-                      &Service::serviceGetRequest);
-    server->subscribe({.uri = "/dcc/service/", .method = HTTP_PUT},
-                      service,
-                      &Service::servicePutRequest);
+    http::sta::service->subscribe({.uri = "/dcc/locos/", .method = HTTP_DELETE},
+                                  service,
+                                  &Service::locosDeleteRequest);
+    http::sta::service->subscribe({.uri = "/dcc/locos/", .method = HTTP_GET},
+                                  service,
+                                  &Service::locosGetRequest);
+    http::sta::service->subscribe({.uri = "/dcc/locos/", .method = HTTP_PUT},
+                                  service,
+                                  &Service::locosPutRequest);
   }
-
   return ESP_OK;
 }
 

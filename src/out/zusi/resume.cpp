@@ -6,14 +6,19 @@
 
 #include "resume.hpp"
 #include <driver/gpio.h>
-#include <driver/spi_master.h>
+#include <driver/gptimer.h>
 #include <algorithm>
-#include "../resume.hpp"
 #include "init.hpp"
 
 namespace out::zusi {
 
 namespace {
+
+/// TODO
+esp_err_t init_alarm() {
+  ESP_ERROR_CHECK(gptimer_enable(gptimer));
+  return gptimer_start(gptimer);
+}
 
 ///
 esp_err_t init_gpio() { return gpio_set_level(enable_gpio_num, 1u); }
@@ -22,7 +27,7 @@ esp_err_t init_gpio() { return gpio_set_level(enable_gpio_num, 1u); }
 
 ///
 esp_err_t resume() {
-  ESP_ERROR_CHECK(out::resume(nullptr));
+  ESP_ERROR_CHECK(init_alarm());
   return init_gpio();
 }
 

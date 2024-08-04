@@ -2,6 +2,12 @@
   "version": "2.0.0",
   "tasks": [
     {
+      "label": "Clean",
+      "type": "shell",
+      "isBackground": true,
+      "command": "rm -rf build && rm -rf managed_components && rm -rf dependencies.lock && rm -rf sdkconfig && rm -rf sdkconfig.old",
+    },
+    {
       "label": "CMake Firmware",
       "type": "shell",
       "isBackground": true,
@@ -11,7 +17,7 @@
       "label": "CMake FirmwareTests",
       "type": "shell",
       "isBackground": true,
-      "command": ". esp-idf.fish && cmake -Bbuild -GNinja -DCMAKE_BUILD_TYPE=Debug -DPYTHON_DEPS_CHECKED=1 -DESP_PLATFORM=1 -DIDF_TARGET=linux -DCCACHE_ENABLE=0"
+      "command": ". esp-idf.fish && cmake -Bbuild -GNinja -DCMAKE_BUILD_TYPE=Debug -DPYTHON_DEPS_CHECKED=1 -DESP_PLATFORM=1 -DIDF_TARGET=linux -DCCACHE_ENABLE=0 -DBUILD_TESTING=OFF"
     },
     {
       "label": "Ninja Firmware",
@@ -38,6 +44,12 @@
       "command": ". esp-idf.fish && ninja -C build FirmwareLst"
     },
     {
+      "label": "Ninja FirmwareFormat",
+      "type": "shell",
+      "isBackground": true,
+      "command": ". esp-idf.fish && ninja -C build FirmwareFormat"
+    },
+    {
       "label": "Run FirmwareTests",
       "type": "shell",
       "isBackground": true,
@@ -57,6 +69,18 @@
         "cwd": "/home/vinci/.espressif/tools/openocd-esp32/v0.12.0-esp32-20230921/openocd-esp32"
       },
       "command": "bin/openocd -f board/esp32s3-builtin.cfg"
-    }
+    },
+    {
+      "label": "act esp-elf-gcc",
+      "type": "shell",
+      "isBackground": true,
+      "command": "act -j esp-elf-gcc --input target=linux --input command=\"cmake -Bbuild -GNinja -DCMAKE_BUILD_TYPE=Debug -DPYTHON_DEPS_CHECKED=1 -DESP_PLATFORM=1 -DIDF_TARGET=linux -DCCACHE_ENABLE=0 -DBUILD_TESTING=OFF && idf.py build\" --input post-build=\"./build/Firmware.elf\""
+    },
+    {
+      "label": "act tests",
+      "type": "shell",
+      "isBackground": true,
+      "command": "act -j tests --input target=esp32s3 --input command=\"cmake -Bbuild -DCMAKE_TOOLCHAIN_FILE=$IDF_PATH/tools/cmake/toolchain-esp32s3.cmake -DPYTHON_DEPS_CHECKED=1 -DESP_PLATFORM=1 -DIDF_TARGET=esp32s3 -DCCACHE_ENABLE=0 && idf.py build\""
+    },
   ]
 }

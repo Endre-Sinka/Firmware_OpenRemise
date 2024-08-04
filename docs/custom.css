@@ -1,3 +1,7 @@
 html {
   --content-maxwidth: auto
 }
+
+#projectname {
+  display: none
+}

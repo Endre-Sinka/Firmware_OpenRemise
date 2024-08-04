@@ -23,12 +23,14 @@ http::Response Service::getRequest(http::Request const& req) {
   std::ranges::fill(sta_pass, '*');
 
   //
-  DynamicJsonDocument doc{1024uz};
+  JsonDocument doc;
   doc["sta_mdns"] = nvs.getStationmDNS();
   doc["sta_ssid"] = nvs.getStationSSID();
   doc["sta_pass"] = sta_pass;
   doc["http_rx_timeout"] = nvs.getHttpReceiveTimeout();
   doc["http_tx_timeout"] = nvs.getHttpTransmitTimeout();
+  doc["usb_rx_timeout"] = nvs.getUsbReceiveTimeout();
+  doc["current_limit"] = nvs.getCurrentLimit();
   doc["dcc_preamble"] = nvs.getDccPreamble();
   doc["dcc_bit1_dur"] = nvs.getDccBit1Duration();
   doc["dcc_bit0_dur"] = nvs.getDccBit0Duration();
@@ -53,8 +55,8 @@ http::Response Service::postRequest(http::Request const& req) {
     return std::unexpected<std::string>{"415 Unsupported Media Type"};
 
   // Deserialize (this only creates meta data which points to the source)
-  DynamicJsonDocument doc{size(req.body) * 10u};
-  if (auto const err{deserializeJson(doc, data(req.body), size(req.body))}) {
+  JsonDocument doc;
+  if (auto const err{deserializeJson(doc, req.body)}) {
     LOGE("Deserialization failed %s", err.c_str());
     return std::unexpected<std::string>{"500 Internal Server Error"};
   }
@@ -80,6 +82,14 @@ http::Response Service::postRequest(http::Request const& req) {
 
   if (JsonVariantConst v{doc["http_tx_timeout"]}; v.is<uint16_t>())
     if (nvs.setHttpTransmitTimeout(v.as<uint16_t>()) != ESP_OK)
+      return std::unexpected<std::string>{"422 Unprocessable Entity"};
+
+  if (JsonVariantConst v{doc["usb_rx_timeout"]}; v.is<uint16_t>())
+    if (nvs.setUsbReceiveTimeout(v.as<uint16_t>()) != ESP_OK)
+      return std::unexpected<std::string>{"422 Unprocessable Entity"};
+
+  if (JsonVariantConst v{doc["current_limit"]}; v.is<uint8_t>())
+    if (nvs.setCurrentLimit(v.as<uint8_t>()) != ESP_OK)
       return std::unexpected<std::string>{"422 Unprocessable Entity"};
 
   if (JsonVariantConst v{doc["dcc_preamble"]}; v.is<uint8_t>())

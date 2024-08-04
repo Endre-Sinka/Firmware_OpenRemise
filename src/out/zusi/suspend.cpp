@@ -27,11 +27,22 @@ esp_err_t deinit_gpio() {
   return gpio_set_level(enable_gpio_num, 0u);
 }
 
+/// TODO
+esp_err_t deinit_alarm() {
+  gptimer_stop(gptimer);
+  ESP_ERROR_CHECK(gptimer_set_raw_count(gptimer, 0ull));
+  ESP_ERROR_CHECK(gptimer_disable(gptimer));
+  gptimer_event_callbacks_t cbs{};
+  ESP_ERROR_CHECK(gptimer_register_event_callbacks(gptimer, &cbs, NULL));
+  return gptimer_set_alarm_action(gptimer, NULL);
+}
+
 }  // namespace
 
 /// TODO
 esp_err_t suspend() {
   ESP_ERROR_CHECK(deinit_gpio());
+  ESP_ERROR_CHECK(deinit_alarm());
   return out::suspend();
 }
 

@@ -7,6 +7,4 @@ class UsbTest : public virtual ::testing::Test {
 public:
   UsbTest();
   ~UsbTest();
-
-  std::array<char, usb::buffer_size> _stack{};
 };

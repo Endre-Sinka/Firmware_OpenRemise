@@ -6,7 +6,7 @@
 
 #include "init.hpp"
 #include <memory>
-#include "http/sta/server.hpp"
+#include "http/sta/service.hpp"
 #include "log.h"
 #include "service.hpp"
 
@@ -20,17 +20,14 @@ std::shared_ptr<Service> service;
 
 /// TODO
 esp_err_t init() {
-  using http::sta::server;
-
-  if (server) {
+  if (http::sta::service) {
     service = std::make_shared<Service>();
-    server->subscribe(
+    http::sta::service->subscribe(
       {.uri = "/settings/", .method = HTTP_GET}, service, &Service::getRequest);
-    server->subscribe({.uri = "/settings/", .method = HTTP_POST},
-                      service,
-                      &Service::postRequest);
+    http::sta::service->subscribe({.uri = "/settings/", .method = HTTP_POST},
+                                  service,
+                                  &Service::postRequest);
   }
-
   return ESP_OK;
 }
 

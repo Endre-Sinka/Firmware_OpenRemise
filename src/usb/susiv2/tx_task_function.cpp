@@ -34,9 +34,8 @@ void transmit(std::span<uint8_t const> stack) {
 /// TODO
 void loop() {
   ::zusi::Buffer<buffer_size> stack;
-  while (eTaskGetState(rx_task.handle) < eSuspended) {
+  while (eTaskGetState(rx_task.handle) < eSuspended)
     if (auto const msg{receive(stack)}) transmit(*msg);
-  }
 }
 
 }  // namespace
@@ -45,7 +44,9 @@ void loop() {
 void tx_task_function(void*) {
   for (;;) {
     LOGI_TASK_SUSPEND(tx_task.handle);
+
     loop();
+
     LOGI_TASK_RESUME(usb::rx_task.handle);
   }
 }

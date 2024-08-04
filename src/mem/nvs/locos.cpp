@@ -19,8 +19,8 @@ dcc::NvLocoBase Locos::get(dcc::Address::value_type addr) const {
 ///
 dcc::NvLocoBase Locos::get(std::string const& key) const {
   auto const json{getBlob(key)};
-  DynamicJsonDocument doc{1024uz};
-  if (auto const err{deserializeJson(doc, data(json), size(json))}) {
+  JsonDocument doc;
+  if (auto const err{deserializeJson(doc, json)}) {
     LOGE("Deserialization failed %s", err.c_str());
     return {};
   }
@@ -40,7 +40,7 @@ esp_err_t Locos::set(std::string const& key, dcc::NvLocoBase const& loco) {
   auto const doc{loco.toJsonDocument()};
   std::string json;
   json.reserve(1024uz);
-  assert(serializeJson(doc, json));
+  if (!serializeJson(doc, json)) assert(false);
   return setBlob(key, json);
 }
 

@@ -1,6 +1,6 @@
-/// HTTP and websocket station endpoints
+/// HTTP and WebSocket endpoints
 ///
-/// \file   http/sta/endpoints.hpp
+/// \file   http/endpoints.hpp
 /// \author Vincent Hamp
 /// \date   01/03/2023
 
@@ -14,18 +14,22 @@
 #include <string>
 #include <vector>
 #include <ztl/fail.hpp>
-#include "../message.hpp"
-#include "../request.hpp"
-#include "../response.hpp"
 #include "log.h"
+#include "message.hpp"
+#include "request.hpp"
+#include "response.hpp"
 #include "utility.hpp"
 
-namespace http::sta {
+namespace http {
 
 ///
 class Endpoints {
   using key_type = httpd_uri_t;
+
+  /// Mapped type for HTTP requests
   using sync_mapped_type = std::vector<std::function<Response(Request const&)>>;
+
+  /// Mapped type for WebSockets
   using async_mapped_type = std::vector<std::function<esp_err_t(Message&)>>;
 
 public:
@@ -73,17 +77,16 @@ protected:
     auto const key{req2key(req)};
     auto const it{_async_map.find(key)};
     if (it == cend(_async_map)) return ESP_FAIL;
-    httpd_ws_frame_t ws_pkt{};
-    if (httpd_ws_recv_frame(req, &ws_pkt, 0)) return ESP_FAIL;
+    httpd_ws_frame_t frame{};
+    if (httpd_ws_recv_frame(req, &frame, 0)) return ESP_FAIL;
 
     // WebSocket frame must be red in one go
-    Message msg{.handle = req->handle,
-                .fd = httpd_req_to_sockfd(req),
-                .type = ws_pkt.type,
-                .payload = std::vector<uint8_t>(ws_pkt.len)};
-    if (ws_pkt.len) {
-      ws_pkt.payload = data(msg.payload);
-      if (httpd_ws_recv_frame(req, &ws_pkt, ws_pkt.len)) return ESP_FAIL;
+    Message msg{.sock_fd = httpd_req_to_sockfd(req),
+                .type = frame.type,
+                .payload = std::vector<uint8_t>(frame.len)};
+    if (frame.len) {
+      frame.payload = data(msg.payload);
+      if (httpd_ws_recv_frame(req, &frame, frame.len)) return ESP_FAIL;
     }
 
     return it->second[0uz](msg);
@@ -111,4 +114,4 @@ private:
   std::map<key_type, async_mapped_type, key_compare> _async_map;
 };
 
-}  // namespace http::sta
+}  // namespace http

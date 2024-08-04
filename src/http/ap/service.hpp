@@ -1,20 +1,20 @@
-/// HTTP server for access point
+/// HTTP service for access point
 ///
-/// \file   http/ap/server.hpp
+/// \file   http/ap/service.hpp
 /// \author Vincent Hamp
 /// \date   01/03/2023
 
 #pragma once
 
-#include <esp_http_server.h>
 #include <string>
 #include "utility.hpp"
 
 namespace http::ap {
 
-class Server {
+class Service {
 public:
-  explicit Server(QueueHandle_t ap_records_queue_handle);
+  explicit Service(QueueHandle_t ap_records_queue_handle);
+  ~Service();
 
 private:
   void buildApRecordsStrings(QueueHandle_t ap_records_queue_handle);
@@ -26,7 +26,6 @@ private:
 
   static constexpr auto unicode_lock_{"&#x1F512"};
 
-  httpd_handle_t _server{};
   std::string _ap_options_str;
   std::string _ap_records_str;
   std::string _get_str;
