@@ -5,21 +5,33 @@
 /// \date   10/02/2023
 
 #include "resume.hpp"
+#include <driver/gpio.h>
 #include <driver/uart.h>
 #include <algorithm>
-#include "../resume.hpp"
 
 namespace out::track::dcc {
 
-namespace {
-
-///
+/// TODO
 esp_err_t init_encoder(dcc_encoder_config_t const& encoder_config) {
   assert(!encoder);
   return rmt_new_dcc_encoder(&encoder_config, &encoder);
 }
 
-///
+/// TODO
+esp_err_t init_rmt(rmt_tx_done_callback_t rmt_cb) {
+  rmt_tx_event_callbacks_t cbs{.on_trans_done = rmt_cb};
+  return rmt_tx_register_event_callbacks(channel, &cbs, NULL);
+}
+
+/// TODO
+esp_err_t init_alarm(gptimer_alarm_cb_t gptimer_cb) {
+  gptimer_event_callbacks_t cbs{.on_alarm = gptimer_cb};
+  ESP_ERROR_CHECK(gptimer_register_event_callbacks(gptimer, &cbs, NULL));
+  ESP_ERROR_CHECK(gptimer_enable(gptimer));
+  return gptimer_start(gptimer);
+}
+
+/// TODO
 esp_err_t init_bidi() {
   //
   static constexpr uart_config_t uart_config{
@@ -40,15 +52,18 @@ esp_err_t init_bidi() {
                       UART_PIN_NO_CHANGE);
 }
 
-}  // namespace
+/// TODO
+esp_err_t init_gpio() { return gpio_set_level(enable_gpio_num, 1u); }
 
-///
+/// TODO
 esp_err_t resume(dcc_encoder_config_t const& encoder_config,
                  rmt_tx_done_callback_t rmt_cb,
                  gptimer_alarm_cb_t gptimer_cb) {
   ESP_ERROR_CHECK(init_encoder(encoder_config));
+  ESP_ERROR_CHECK(init_rmt(rmt_cb));
+  ESP_ERROR_CHECK(init_alarm(gptimer_cb));
   ESP_ERROR_CHECK(init_bidi());
-  return track::resume(rmt_cb, gptimer_cb);
+  return init_gpio();
 }
 
 }  // namespace out::track::dcc

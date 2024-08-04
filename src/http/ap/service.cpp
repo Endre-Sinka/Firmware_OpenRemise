@@ -1,10 +1,10 @@
-/// HTTP server for access point
+/// HTTP service for access point
 ///
-/// \file   http/ap/server.cpp
+/// \file   http/ap/service.cpp
 /// \author Vincent Hamp
 /// \date   01/03/2023
 
-#include "server.hpp"
+#include "service.hpp"
 #include <esp_wifi.h>
 #include <fmt/core.h>
 #include <freertos/queue.h>
@@ -20,8 +20,8 @@ extern char const _binary_index_html_end;
 
 namespace http::ap {
 
-///
-Server::Server(QueueHandle_t ap_records_queue_handle) {
+/// Ctor
+Service::Service(QueueHandle_t ap_records_queue_handle) {
   _ap_records_str.reserve(1024uz);
   _ap_options_str.reserve(1024uz);
   _get_str.reserve(2048uz);
@@ -35,23 +35,29 @@ Server::Server(QueueHandle_t ap_records_queue_handle) {
   config.lru_purge_enable = true;
   config.keep_alive_enable = true;
   config.uri_match_fn = httpd_uri_match_wildcard;
-  ESP_ERROR_CHECK(httpd_start(&_server, &config));
+  ESP_ERROR_CHECK(httpd_start(&handle, &config));
 
   //
   httpd_uri_t uri{.uri = "/*",
                   .method = HTTP_GET,
-                  .handler = make_tramp(this, &Server::wildcardGetHandler)};
-  ESP_ERROR_CHECK(httpd_register_uri_handler(_server, &uri));
+                  .handler = make_tramp(this, &Service::wildcardGetHandler)};
+  ESP_ERROR_CHECK(httpd_register_uri_handler(handle, &uri));
 
   //
   uri = {.uri = "/save",
          .method = HTTP_POST,
-         .handler = make_tramp(this, &Server::savePostHandler)};
-  ESP_ERROR_CHECK(httpd_register_uri_handler(_server, &uri));
+         .handler = make_tramp(this, &Service::savePostHandler)};
+  ESP_ERROR_CHECK(httpd_register_uri_handler(handle, &uri));
+}
+
+/// Dtor
+Service::~Service() {
+  ESP_ERROR_CHECK(httpd_stop(&handle));
+  handle = NULL;
 }
 
 ///
-void Server::buildApRecordsStrings(QueueHandle_t ap_records_queue_handle) {
+void Service::buildApRecordsStrings(QueueHandle_t ap_records_queue_handle) {
   wifi_ap_record_t ap_record;
   while (xQueueReceive(ap_records_queue_handle, &ap_record, 0u)) {
     //
@@ -75,7 +81,7 @@ void Server::buildApRecordsStrings(QueueHandle_t ap_records_queue_handle) {
 }
 
 ///
-void Server::buildGetString() {
+void Service::buildGetString() {
   auto const result{fmt::format_to_n(
     begin(_get_str),
     _get_str.capacity(),
@@ -91,7 +97,7 @@ void Server::buildGetString() {
 }
 
 ///
-void Server::getConfig() {
+void Service::getConfig() {
   mem::nvs::Settings nvs;
 
   // Read mDNS
@@ -106,7 +112,7 @@ void Server::getConfig() {
 }
 
 ///
-void Server::setConfig() const {
+void Service::setConfig() const {
   mem::nvs::Settings nvs;
   ESP_ERROR_CHECK(nvs.setStationmDNS(_sta_mdns_str));
   ESP_ERROR_CHECK(nvs.setStationSSID(_sta_ssid_str));
@@ -114,7 +120,7 @@ void Server::setConfig() const {
 }
 
 ///
-esp_err_t Server::wildcardGetHandler(httpd_req_t* req) {
+esp_err_t Service::wildcardGetHandler(httpd_req_t* req) {
   LOGD("GET request %s", req->uri);
   buildGetString();
   httpd_resp_send(req, data(_get_str), ssize(_get_str));
@@ -122,7 +128,7 @@ esp_err_t Server::wildcardGetHandler(httpd_req_t* req) {
 }
 
 ///
-esp_err_t Server::savePostHandler(httpd_req_t* req) {
+esp_err_t Service::savePostHandler(httpd_req_t* req) {
   LOGD("POST request %s", req->uri);
 
   assert(req->content_len < HTTPD_MAX_URI_LEN);

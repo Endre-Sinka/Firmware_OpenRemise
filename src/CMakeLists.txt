@@ -1,5 +1,5 @@
 set(COMMON_SRC
-    out/track/current_limit.cpp usb/dcc_ein/rx_task_function.cpp
+    dcc/loco.cpp out/track/current_limit.cpp usb/dcc_ein/rx_task_function.cpp
     usb/dcc_ein/tx_task_function.cpp usb/rx_task_function.cpp utility.cpp)
 
 if(IDF_TARGET STREQUAL linux)
@@ -12,6 +12,7 @@ if(IDF_TARGET STREQUAL linux)
     bblanchon__arduinojson
     driver
     esp_app_format
+    esp_http_server
     nvs_flash
     EMBED_FILES
     ${CMAKE_BINARY_DIR}/http/ap/index.html)
@@ -24,14 +25,11 @@ else()
     analog/init.cpp
     analog/temp_task_function.cpp
     dcc/init.cpp
-    dcc/loco.cpp
-    dcc/operations_service.cpp
-    dcc/service_service.cpp
     dcc/service.cpp
     http/ap/init.cpp
-    http/ap/server.cpp
+    http/ap/service.cpp
     http/sta/init.cpp
-    http/sta/server.cpp
+    http/sta/service.cpp
     http/init.cpp
     mdu/firmware_service.cpp
     mdu/init.cpp
@@ -53,15 +51,12 @@ else()
     out/track/mdu/suspend.cpp
     out/track/mdu/task_function.cpp
     out/track/init.cpp
-    out/track/resume.cpp
-    out/track/suspend.cpp
     out/zusi/init.cpp
     out/zusi/resume.cpp
     out/zusi/suspend.cpp
     out/zusi/task_function.cpp
     out/zusi/zpp_load.cpp
     out/init.cpp
-    out/resume.cpp
     out/suspend.cpp
     settings/init.cpp
     settings/service.cpp
@@ -74,6 +69,8 @@ else()
     usb/rx_task_function.cpp
     usb/tx_task_function.cpp
     wifi/init.cpp
+    z21/init.cpp
+    z21/service.cpp
     zusi/init.cpp
     zusi/service.cpp
     app_main.cpp
@@ -120,13 +117,13 @@ target_compile_options(
 # ESP-IDF stuff is full of -Werror=format...
 idf_build_set_property(
   COMPILE_OPTIONS
-  "-Wno-error=all;-Wno-error=extra;-Wno-error=implicit-function-declaration;-Wno-error=format"
+  "-Wno-error=all;-Wno-error=extra;-Wno-error=implicit-function-declaration;-Wno-error=format;-Wno-error=switch"
   APPEND)
 
 cpmaddpackage("gh:ZIMO-Elektronik/ZUSI@0.7.0")
 cpmaddpackage("gh:ZIMO-Elektronik/ULF_COM@0.0.1")
-cpmaddpackage("gh:ZIMO-Elektronik/DCC_EIN@0.2.0")
-cpmaddpackage("gh:Neargye/magic_enum@0.9.5")
+cpmaddpackage("gh:ZIMO-Elektronik/ULF_DCC_EIN@0.3.0")
+cpmaddpackage("gh:Neargye/magic_enum@0.9.6")
 cpmaddpackage("gh:microsoft/GSL@4.0.0")
 
 # fmt install option does not play nice with ESP-IDF
@@ -144,8 +141,14 @@ cpmaddpackage(
   "FMT_OS OFF")
 
 target_link_libraries(
-  ${COMPONENT_LIB} PUBLIC DCC_EIN::DCC_EIN fmt::fmt magic_enum::magic_enum
-                          Microsoft.GSL::GSL ULF::COM ZUSI::ZUSI)
+  ${COMPONENT_LIB}
+  PUBLIC fmt::fmt
+         magic_enum::magic_enum
+         Microsoft.GSL::GSL
+         ULF::COM
+         ULF::DCC_EIN
+         Z21::Z21
+         ZUSI::ZUSI)
 
 # Minify HTML shown by http::ap::Server
 minify_html(http/ap/index.html ${CMAKE_BINARY_DIR}/http/ap/index.html)

@@ -24,11 +24,17 @@ public:
   std::string getStationPassword() const;
   esp_err_t setStationPassword(std::string_view str);
 
-  uint16_t getHttpReceiveTimeout() const;
-  esp_err_t setHttpReceiveTimeout(uint16_t value);
+  uint8_t getHttpReceiveTimeout() const;
+  esp_err_t setHttpReceiveTimeout(uint8_t value);
 
-  uint16_t getHttpTransmitTimeout() const;
-  esp_err_t setHttpTransmitTimeout(uint16_t value);
+  uint8_t getHttpTransmitTimeout() const;
+  esp_err_t setHttpTransmitTimeout(uint8_t value);
+
+  uint8_t getUsbReceiveTimeout() const;
+  esp_err_t setUsbReceiveTimeout(uint8_t value);
+
+  uint8_t getCurrentLimit() const;
+  esp_err_t setCurrentLimit(uint8_t value);
 
   uint8_t getDccPreamble() const;
   esp_err_t setDccPreamble(uint8_t value);

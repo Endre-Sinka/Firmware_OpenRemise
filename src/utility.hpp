@@ -145,6 +145,9 @@ void bug_led(uint32_t level);
 uint16_t get_http_receive_timeout();
 
 ///
+uint16_t get_usb_receive_timeout();
+
+///
 template<typename F, typename... Ts>
 auto invoke_on_core(BaseType_t core_id, F&& f, Ts&&... ts) {
   using R = decltype(f(std::forward<Ts>(ts)...));
@@ -161,18 +164,19 @@ auto invoke_on_core(BaseType_t core_id, F&& f, Ts&&... ts) {
 
     // Create task and wait for it's deletion
     TaskHandle_t handle;
-    assert(xTaskCreatePinnedToCore(
-      [](void* pv) {
-        auto& _t{*static_cast<decltype(t)*>(pv)};
-        std::apply(std::get<0uz>(_t), std::get<1uz>(_t));
-        vTaskDelete(NULL);
-      },
-      NULL,
-      default_stacksize,
-      &t,
-      ESP_TASK_PRIO_MAX - 1u,
-      &handle,
-      core_id));
+    if (!xTaskCreatePinnedToCore(
+          [](void* pv) {
+            auto& _t{*static_cast<decltype(t)*>(pv)};
+            std::apply(std::get<0uz>(_t), std::get<1uz>(_t));
+            vTaskDelete(NULL);
+          },
+          NULL,
+          default_stacksize,
+          &t,
+          ESP_TASK_PRIO_MAX - 1u,
+          &handle,
+          core_id))
+      assert(false);
     while (eTaskGetState(handle) < eDeleted) vTaskDelay(1u);
   }
   // Pinned core is different, return type isn't void
@@ -183,20 +187,28 @@ auto invoke_on_core(BaseType_t core_id, F&& f, Ts&&... ts) {
 
     // Create task and wait for it's deletion
     TaskHandle_t handle;
-    assert(xTaskCreatePinnedToCore(
-      [](void* pv) {
-        auto& _t{*static_cast<decltype(t)*>(pv)};
-        std::get<0uz>(_t) = std::apply(std::get<1uz>(_t), std::get<2uz>(_t));
-        vTaskDelete(NULL);
-      },
-      NULL,
-      default_stacksize,
-      &t,
-      ESP_TASK_PRIO_MAX - 1u,
-      &handle,
-      core_id));
+    if (!xTaskCreatePinnedToCore(
+          [](void* pv) {
+            auto& _t{*static_cast<decltype(t)*>(pv)};
+            std::get<0uz>(_t) =
+              std::apply(std::get<1uz>(_t), std::get<2uz>(_t));
+            vTaskDelete(NULL);
+          },
+          NULL,
+          default_stacksize,
+          &t,
+          ESP_TASK_PRIO_MAX - 1u,
+          &handle,
+          core_id))
+      assert(false);
     while (eTaskGetState(handle) < eDeleted) vTaskDelay(1u);
 
     return std::get<0uz>(t);
   }
+}
+
+///
+template<typename... Ts>
+auto httpd_ws_send_frame_async(Ts&&... ts) {
+  return httpd_ws_send_frame_async(http::handle, std::forward<Ts>(ts)...);
 }

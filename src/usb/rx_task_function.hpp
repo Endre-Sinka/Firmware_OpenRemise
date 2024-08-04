@@ -11,7 +11,6 @@
 namespace usb {
 
 bool any_protocol_task_active();
-std::string_view receive_command();
 void rx_task_function(void*);
 
 }  // namespace usb

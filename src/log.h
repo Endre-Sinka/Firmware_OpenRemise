@@ -40,12 +40,14 @@
 
 #define LOGI_TASK_RESUME(task_handle)                                          \
   do {                                                                         \
-    LOGI("Resume %s task", pcTaskGetName(task_handle));                        \
+    if (eTaskGetState(task_handle) == eSuspended)                              \
+      LOGI("Resume %s task", pcTaskGetName(task_handle));                      \
     vTaskResume(task_handle);                                                  \
   } while (0)
 
 #define LOGI_TASK_SUSPEND(task_handle)                                         \
   do {                                                                         \
-    LOGI("Suspend %s task", pcTaskGetName(task_handle));                       \
+    if (eTaskGetState(task_handle) != eSuspended)                              \
+      LOGI("Suspend %s task", pcTaskGetName(task_handle));                     \
     vTaskSuspend(task_handle);                                                 \
   } while (0)

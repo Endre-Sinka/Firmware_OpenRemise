@@ -125,12 +125,18 @@ void loop() {
 void rx_task_function(void*) {
   for (;;) {
     LOGI_TASK_SUSPEND(rx_task.handle);
+
+    //
     if (auto expected{Mode::Suspended};
         mode.compare_exchange_strong(expected, Mode::SUSIV2)) {
       transmit_ok();
       LOGI_TASK_RESUME(out::zusi::task.handle);
       loop();
-    } else transmit_not_ok();
+    }
+    //
+    else
+      transmit_not_ok();
+
     LOGI_TASK_RESUME(usb::rx_task.handle);
   }
 }

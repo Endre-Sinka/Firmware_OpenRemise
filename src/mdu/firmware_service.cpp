@@ -33,7 +33,7 @@ void FirmwareService::loop() {
     TickType_t then{xTaskGetTickCount() + pdMS_TO_TICKS(timeout)};
     while (empty(_queue))
       if (xTaskGetTickCount() >= then) {
-        LOGI("MDU WebSocket timeout");
+        LOGI("WebSocket timeout");
         return close();
       }
 
@@ -41,19 +41,19 @@ void FirmwareService::loop() {
 
     switch (msg.type) {
       case HTTPD_WS_TYPE_BINARY: _acks = transmit(msg.payload); break;
-      case HTTPD_WS_TYPE_CLOSE: LOGI("MDU WebSocket closed"); return close();
+      case HTTPD_WS_TYPE_CLOSE: LOGI("WebSocket closed"); return close();
       default:
-        LOGE("MDU WebSocket packet type neither binary nor close");
+        LOGE("WebSocket packet type neither binary nor close");
         _acks = {ack, nak};
         break;
     }
 
-    httpd_ws_frame_t ws_pkt{
+    httpd_ws_frame_t frame{
       .type = HTTPD_WS_TYPE_BINARY,
       .payload = data(_acks),
       .len = size(_acks),
     };
-    httpd_ws_send_frame_async(msg.handle, msg.fd, &ws_pkt);
+    httpd_ws_send_frame_async(msg.sock_fd, &frame);
 
     _queue.pop();
   }

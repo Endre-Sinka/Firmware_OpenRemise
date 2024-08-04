@@ -1,6 +1,6 @@
 #include "init.hpp"
 #include <memory>
-#include "http/sta/server.hpp"
+#include "http/sta/service.hpp"
 #include "service.hpp"
 
 namespace mdu {
@@ -13,15 +13,13 @@ std::shared_ptr<Service> service;
 
 ///
 esp_err_t init(BaseType_t xCoreID) {
-  using http::sta::server;
-
-  if (server) {
+  if (http::sta::service) {
     service = std::make_shared<Service>(xCoreID);
-    server->subscribe(
+    http::sta::service->subscribe(
       {.uri = "/mdu/firmware/"}, service, &Service::firmwareSocket);
-    server->subscribe({.uri = "/mdu/zpp/"}, service, &Service::zppSocket);
+    http::sta::service->subscribe(
+      {.uri = "/mdu/zpp/"}, service, &Service::zppSocket);
   }
-
   return ESP_OK;
 }
 

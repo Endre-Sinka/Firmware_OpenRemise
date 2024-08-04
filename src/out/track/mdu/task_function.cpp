@@ -154,9 +154,9 @@ esp_err_t loop(mdu_encoder_config_t& encoder_config) {
     // Return on timeout
     if (auto const now{xTaskGetTickCount()}; now >= then)
       return rmt_tx_wait_all_done(channel, -1);
-    // In case we got data, reset timeout
+    // In case we a packet, reset timeout
     else if (packet) then = now + pdMS_TO_TICKS(task.timeout);
-    // We got no data, transmit busy packet
+    // We got no packet, transmit busy packet
     else {
       ESP_ERROR_CHECK(transmit_packet_wait_all_done(busy_packet));
       auto const acks{receive_acks(encoder_config, *packet)};

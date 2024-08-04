@@ -1,9 +1,13 @@
 find_package(Doxygen QUIET COMPONENTS dot mscgen)
 
 if(Doxygen_FOUND)
-  cpmaddpackage("gh:jothepro/doxygen-awesome-css@2.3.1")
+  cpmaddpackage("gh:jothepro/doxygen-awesome-css@2.3.3")
 
-  set(DOXYGEN_PROJECT_LOGO ${CMAKE_SOURCE_DIR}/data/images/head.svg)
+  file(DOWNLOAD
+       "https://github.com/OpenRemise/.github/raw/master/data/images/logo.svg"
+       ${CMAKE_SOURCE_DIR}/data/images/logo.svg)
+
+  set(DOXYGEN_PROJECT_LOGO ${CMAKE_SOURCE_DIR}/data/images/logo.svg)
   set(DOXYGEN_MULTILINE_CPP_IS_BRIEF YES)
   set(DOXYGEN_BUILTIN_STL_SUPPORT YES)
   set(DOXYGEN_NUM_PROC_THREADS 0)

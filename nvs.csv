@@ -2,8 +2,10 @@
 key,type,encoding,value
 settings,namespace,,
 sta_mdns,data,binary,"wulf"
-http_rx_timeout,data,u16,5
-http_tx_timeout,data,u16,5
+http_rx_timeout,data,u8,5
+http_tx_timeout,data,u8,5
+usb_rx_timeout,data,u8,1
+current_limit,data,u8,3
 dcc_preamble,data,u8,17
 dcc_bit1_dur,data,u8,58
 dcc_bit0_dur,data,u8,100

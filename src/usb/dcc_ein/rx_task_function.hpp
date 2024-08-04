@@ -11,7 +11,7 @@
 
 namespace usb::dcc_ein {
 
-std::optional<std::span<char>> receive_senddcc_str(std::span<char> str);
+std::optional<dcc::Packet> receive_dcc_packet();
 void rx_task_function(void*);
 
 }  // namespace usb::dcc_ein

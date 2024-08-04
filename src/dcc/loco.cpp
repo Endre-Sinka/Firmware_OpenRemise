@@ -8,12 +8,18 @@ void NvLocoBase::fromJsonDocument(JsonDocument const& doc) {
   // Copy name
   if (JsonVariantConst doc_name{doc["name"]}; doc_name.is<std::string>())
     name = doc_name.as<std::string>();
+
+  // Copy name
+  if (JsonVariantConst doc_speed_steps{doc["speed_steps"]};
+      doc_speed_steps.is<z21::LocoInfo::SpeedSteps>())
+    speed_steps = doc_speed_steps.as<z21::LocoInfo::SpeedSteps>();
 }
 
 ///
-DynamicJsonDocument NvLocoBase::toJsonDocument() const {
-  DynamicJsonDocument doc{1024uz};
+JsonDocument NvLocoBase::toJsonDocument() const {
+  JsonDocument doc;
   doc["name"] = name;
+  doc["speed_steps"] = speed_steps;
   return doc;
 }
 
@@ -21,25 +27,21 @@ DynamicJsonDocument NvLocoBase::toJsonDocument() const {
 void Loco::fromJsonDocument(JsonDocument const& doc) {
   NvLocoBase::fromJsonDocument(doc);
 
-  // Copy functions
-  if (JsonVariantConst doc_functions{doc["functions"]};
-      doc_functions.is<uint64_t>())
-    functions = doc_functions;
+  // Copy rvvvvvvv
+  if (JsonVariantConst doc_rvvvvvvv{doc["rvvvvvvv"]};
+      doc_rvvvvvvv.is<uint8_t>())
+    rvvvvvvv = doc_rvvvvvvv;
 
-  // Copy speed
-  if (JsonVariantConst doc_speed{doc["speed"]}; doc_speed.is<uint8_t>())
-    speed = doc_speed;
-
-  // Copy direction
-  if (JsonVariantConst doc_dir{doc["dir"]}; doc_dir.is<int8_t>()) dir = doc_dir;
+  // Copy f31_0
+  if (JsonVariantConst doc_f31_0{doc["f31_0"]}; doc_f31_0.is<uint32_t>())
+    f31_0 = doc_f31_0;
 }
 
 ///
-DynamicJsonDocument Loco::toJsonDocument() const {
+JsonDocument Loco::toJsonDocument() const {
   auto doc{NvLocoBase::toJsonDocument()};
-  doc["functions"] = functions;
-  doc["speed"] = speed;
-  doc["dir"] = dir;
+  doc["rvvvvvvv"] = rvvvvvvv;
+  doc["f31_0"] = f31_0;
   return doc;
 }
 

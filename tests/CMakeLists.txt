@@ -10,10 +10,16 @@ idf_component_register(
   src
   WHOLE_ARCHIVE)
 
-set(INSTALL_GTEST
-    OFF
-    CACHE BOOL "" FORCE)
-cpmaddpackage("gh:google/googletest#main")
+cpmaddpackage(
+  NAME
+  googletest
+  GITHUB_REPOSITORY
+  "google/googletest"
+  GIT_TAG
+  main
+  SYSTEM
+  YES
+  OPTIONS
+  "INSTALL_GTEST OFF")
 
-target_link_libraries(${COMPONENT_LIB} PRIVATE GTest::gtest GTest::gmock
-                                               MDU::MDU)
+target_link_libraries(${COMPONENT_LIB} PRIVATE GTest::gtest GTest::gmock)

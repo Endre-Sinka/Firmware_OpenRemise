@@ -28,11 +28,8 @@ void esp_delayed_restart() {
 
 // https://arduinojson.org/v6/how-to/validate-json/
 bool validate_json(std::string_view json) {
-  StaticJsonDocument<0uz> doc, filter;
-  return deserializeJson(doc,
-                         data(json),
-                         size(json),
-                         DeserializationOption::Filter(filter)) ==
+  JsonDocument doc, filter;
+  return deserializeJson(doc, json, DeserializationOption::Filter(filter)) ==
          DeserializationError::Ok;
 }
 
@@ -65,4 +62,10 @@ void bug_led(uint32_t level) {
 uint16_t get_http_receive_timeout() {
   mem::nvs::Settings nvs;
   return nvs.getHttpReceiveTimeout() * 1000u;
+}
+
+///
+uint16_t get_usb_receive_timeout() {
+  mem::nvs::Settings nvs;
+  return nvs.getUsbReceiveTimeout() * 1000u;
 }

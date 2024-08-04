@@ -4,8 +4,6 @@
 /// \author Vincent Hamp
 /// \date   15/02/2024
 
-#pragma once
-
 #include "current_limit.hpp"
 #include <driver/gpio.h>
 

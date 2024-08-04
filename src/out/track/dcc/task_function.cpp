@@ -43,7 +43,7 @@ consteval Offsets make_offsets() {
   using namespace std::literals;
   if constexpr (OPTIMIZATION == "-Og"sv)
     return {
-      .endbit = 30u,
+      .endbit = 32u,
       .tcs = 21u,
     };
   else if constexpr (OPTIMIZATION == "-Os"sv)
@@ -61,7 +61,7 @@ consteval Offsets make_offsets() {
       .endbit = 0u,
       .tcs = 0u,
     };
-  else { ztl::fail(); }
+  else ztl::fail();
 }
 
 /// TODO
@@ -132,20 +132,27 @@ bool IRAM_ATTR gptimer_callback(gptimer_handle_t timer,
 }
 
 /// TODO
-dcc_encoder_config_t dcc_encoder_config() {
+dcc_encoder_config_t dcc_encoder_config(Mode dcc_mode = mode.load()) {
+  assert(dcc_mode == Mode::DCC_EIN || dcc_mode == Mode::DCCOperations ||
+         dcc_mode == Mode::DCCService);
+
   mem::nvs::Settings nvs;
-  // return {
-  //   .num_preamble = nvs.getDccPreamble(),
-  //   .bit1_duration = nvs.getDcc1Duration(),
-  //   .bit0_duration = nvs.getDcc0Duration(),
-  //   .bidi = nvs.getDccBiDi(),
-  // };
-  return {.num_preamble = 21u,
-          .bidibit_duration = 60u,
-          // .bidibit_duration = 0u,
-          .bit1_duration = 58u,
-          .bit0_duration = 100u,
-          .endbit_duration = static_cast<uint8_t>(58u - offsets.endbit)};
+  auto const bit1_duration{nvs.getDccBit1Duration()};
+  dcc_encoder_config_t retval{
+    .num_preamble = nvs.getDccPreamble(),
+    .bidibit_duration = nvs.getDccBiDiBitDuration(),
+    .bit1_duration = bit1_duration,
+    .bit0_duration = nvs.getDccBit0Duration(),
+    .endbit_duration = static_cast<uint8_t>(bit1_duration - offsets.endbit)};
+
+  // Service mode can't do BiDi and RCN-216 demands at least 20 preamble bits
+  if (dcc_mode == Mode::DCCService) {
+    retval.num_preamble =
+      std::max<decltype(retval.num_preamble)>(retval.num_preamble, 20u);
+    retval.bidibit_duration = 0u;
+  }
+
+  return retval;
 }
 
 /// TODO
@@ -178,7 +185,7 @@ esp_err_t transmit_packet(Packet const& packet) {
 }
 
 /// TODO
-Datagram<> receive_bidi(Address addr) {
+Datagram<> receive_bidi() {
   //
   auto const notification_value{
     ulTaskNotifyTakeIndexed(default_notify_index, pdTRUE, portMAX_DELAY)};
@@ -206,16 +213,14 @@ Datagram<> receive_bidi(Address addr) {
 }
 
 /// TODO
-esp_err_t transmit_bidi(Address addr, Datagram<> const& datagram) {
-  RxQueue::value_type const addr_datagram{.addr = addr, .datagram = datagram};
-  return xQueueSend(rx_queue.handle, &addr_datagram, 0u) ? ESP_OK : ESP_FAIL;
+esp_err_t transmit_bidi(RxQueue::value_type item) {
+  return xQueueSend(rx_queue.handle, &item, 0u) ? ESP_OK : ESP_FAIL;
 }
 
 /// TODO
 esp_err_t operations_loop() {
   static constexpr auto idle_packet{make_idle_packet()};
   ztl::inplace_deque<Packet, trans_queue_depth> packets{};
-  TickType_t then{xTaskGetTickCount() + pdMS_TO_TICKS(task.timeout)};
 
   // Preload idle packets
   for (auto i{0uz}; i < trans_queue_depth; ++i) {
@@ -224,23 +229,16 @@ esp_err_t operations_loop() {
   }
 
   for (;;) {
-    // Receive BiDi on last transmitted address
-    auto const addr{decode_address(data(*(begin(packets) - 1)))};
-    auto const datagram{receive_bidi(addr)};
-    transmit_bidi(addr, datagram);
+    // Receive BiDi on last transmitted packet
+    transmit_bidi(
+      {.packet = *(cbegin(packets) - 1), .datagram = receive_bidi()});
     packets.pop_front();
 
-    // Return on timeout
-    if (auto const now{xTaskGetTickCount()}; now >= then)
-      return rmt_tx_wait_all_done(channel, -1);
-    // In case we got data, reset timeout
-    else if (auto const packet{receive_packet()}) {
-      then = now + pdMS_TO_TICKS(task.timeout);
+    // Receive packet or return
+    if (auto const packet{receive_packet()};
+        packet && mode.load() != Mode::Shutdown)
       packets.push_back(*packet);
-    }
-    // We got no data, transmit idle packet
-    else
-      packets.push_back(idle_packet);
+    else return rmt_tx_wait_all_done(channel, -1);
 
     // Transmit packet
     ESP_ERROR_CHECK(transmit_packet(packets.front()));
@@ -250,7 +248,7 @@ esp_err_t operations_loop() {
 /// TODO
 analog::CurrentsQueue::value_type peek_current_measurements() {
   analog::CurrentsQueue::value_type currents;
-  assert(xQueuePeek(analog::currents_queue.handle, &currents, 0u));
+  if (!xQueuePeek(analog::currents_queue.handle, &currents, 0u)) assert(false);
   return currents;
 }
 
@@ -300,12 +298,12 @@ esp_err_t transmit_ack(bool ack) {
 /// TODO
 esp_err_t service_loop() {
   static constexpr auto reset_packet{make_reset_packet()};
-  static constexpr auto read_timeout{pdMS_TO_TICKS(50u)};
-  static constexpr auto write_timeout{pdMS_TO_TICKS(100u)};
+  static constexpr auto read_timeout{50u};
+  static constexpr auto write_timeout{100u};
   ztl::inplace_deque<Packet, trans_queue_depth> packets{reset_packet};
   analog::CurrentMeasurement ref_current{};
-  ztl::inplace_vector<analog::CurrentMeasurement::value_type, 1024uz>
-    current_measurements{};
+  std::vector<analog::CurrentMeasurement::value_type> current_measurements;
+  current_measurements.reserve(2048uz);
 
   // Transmit 25 reset packets to ensure entry
   for (auto i{0uz}; i < 25uz + 3uz; ++i)
@@ -319,20 +317,13 @@ esp_err_t service_loop() {
       packets.pop_front();
     }
 
-    // Transmit reset packets until first non-reset packet or timeout
-    TickType_t then{xTaskGetTickCount() + pdMS_TO_TICKS(task.timeout)};
+    // Transmit reset packets until first non-reset packet
     do {
-      // Return on timeout
-      if (auto const now{xTaskGetTickCount()}; now >= then)
-        return rmt_tx_wait_all_done(channel, -1);
-      // In case we got data, reset timeout
-      else if (auto const packet{receive_packet()}) {
-        then = now + pdMS_TO_TICKS(task.timeout);
+      // Receive packet or return
+      if (auto const packet{receive_packet()};
+          packet && mode.load() != Mode::Shutdown)
         packets.push_back(*packet);
-      }
-      // We got no data, transmit idle packet
-      else
-        packets.push_back(reset_packet);
+      else return rmt_tx_wait_all_done(channel, -1);
 
       ESP_ERROR_CHECK(transmit_packet(packets.front()));
       packets.pop_front();
@@ -344,8 +335,8 @@ esp_err_t service_loop() {
     // Transmit equal CV access packets, try to detect ack
     // TODO read timeout would theoretically be only 50ms?
     auto const cv_access_packet{packets.back()};
-    then = xTaskGetTickCount() + write_timeout +
-           pdMS_TO_TICKS(trans_queue_depth * 10u);
+    TickType_t const then{xTaskGetTickCount() + pdMS_TO_TICKS(write_timeout) +
+                          pdMS_TO_TICKS(trans_queue_depth * 10u)};
     bool ack{};
     do {
       if (auto const packet{receive_packet()}) packets.push_back(*packet);
@@ -383,16 +374,14 @@ void task_function(void*) {
         ESP_ERROR_CHECK(operations_loop());
         break;
       case Mode::DCCService:
-        // RCN-216 demands at least 20 preamble bits
-        encoder_config.num_preamble =
-          std::max<decltype(encoder_config.num_preamble)>(
-            encoder_config.num_preamble, 20u);
-        encoder_config.bidibit_duration = 0u;
         ESP_ERROR_CHECK(resume(encoder_config, nullptr, nullptr));
         ESP_ERROR_CHECK(service_loop());
         break;
       default: assert(false); break;
     }
+
+    // Workaround
+    vTaskDelay(pdMS_TO_TICKS(trans_queue_depth * 10u));
 
     ESP_ERROR_CHECK(suspend());
   }

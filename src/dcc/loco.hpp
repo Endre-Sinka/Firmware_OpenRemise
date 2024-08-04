@@ -4,36 +4,34 @@
 #include <optional>
 #include <string>
 #include <type_traits>
+#include <z21/z21.hpp>
+#include <ztl/string.hpp>
 
 namespace dcc {
 
 /// Non-volatile base
-struct NvLocoBase {
+struct NvLocoBase : z21::LocoInfo {
   void fromJsonDocument(JsonDocument const& doc);
-  DynamicJsonDocument toJsonDocument() const;
+  JsonDocument toJsonDocument() const;
   std::string name{};
 };
-
-// Standard layout allows slicing assignment
-static_assert(std::is_standard_layout_v<NvLocoBase>);
 
 /// Actual object with volatile and non-volatile stuff
 struct Loco : NvLocoBase {
   void fromJsonDocument(JsonDocument const& doc);
-  DynamicJsonDocument toJsonDocument() const;
-  uint64_t functions{};
-  uint8_t speed{};
-  int8_t dir{};
+  JsonDocument toJsonDocument() const;
+
+  static constexpr auto max_priority{smath::pow(2, priority_bits) - 1};
+  uint8_t priority{};
 
   // TODO remove
   void print() const {
     printf("Loco object:\n");
-    printf("  name:%s\n", data(name));
-    printf("  functions:%X%X\n",
-           static_cast<uint32_t>(functions >> 32u),
-           static_cast<uint32_t>(functions));
-    printf("  speed:%d\n", speed);
-    printf("  dir:%d\n", dir);
+    printf("  name: %s\n", name.c_str());
+    printf("  functions: " UINT32_TO_BINARY_FORMAT "\n",
+           UINT32_TO_BINARY(f31_0));
+    printf("  dir: %d\n", static_cast<bool>(rvvvvvvv & 0x80u));
+    printf("  speed: %d\n", z21::decode_rvvvvvvv(speed_steps, rvvvvvvv));
   }
 };
 

@@ -12,8 +12,7 @@
 namespace http {
 
 struct Message {
-  httpd_handle_t handle;  /// Handle to server instance
-  int fd;
+  int sock_fd;
   httpd_ws_type_t type;
   std::vector<uint8_t> payload;
 };

@@ -6,13 +6,14 @@ namespace zusi {
 
 /// TODO
 Service::Service(BaseType_t xCoreID) {
-  assert(xTaskCreatePinnedToCore(make_tramp(this, &Service::taskFunction),
-                                 task.name,
-                                 task.stack_depth,
-                                 NULL,
-                                 task.priority,
-                                 &task.handle,
-                                 xCoreID));
+  if (!xTaskCreatePinnedToCore(make_tramp(this, &Service::taskFunction),
+                               task.name,
+                               task.stack_depth,
+                               NULL,
+                               task.priority,
+                               &task.handle,
+                               xCoreID))
+    assert(false);
 }
 
 /// TODO
@@ -58,7 +59,7 @@ void Service::loop() {
     TickType_t then{xTaskGetTickCount() + pdMS_TO_TICKS(timeout)};
     while (empty(_queue))
       if (xTaskGetTickCount() >= then) {
-        LOGI("ZUSI WebSocket timeout");
+        LOGI("WebSocket timeout");
         return close();
       }
 
@@ -66,21 +67,21 @@ void Service::loop() {
 
     switch (msg.type) {
       case HTTPD_WS_TYPE_BINARY: _data = transmit(msg.payload); break;
-      case HTTPD_WS_TYPE_CLOSE: LOGI("ZUSI WebSocket closed"); return close();
+      case HTTPD_WS_TYPE_CLOSE: LOGI("WebSocket closed"); return close();
       default:
-        LOGE("ZUSI WebSocket packet type neither binary nor close");
+        LOGE("WebSocket packet type neither binary nor close");
         _data.front() = nak;
         _data.resize(sizeof(nak));
         break;
     }
 
     //
-    httpd_ws_frame_t ws_pkt{
+    httpd_ws_frame_t frame{
       .type = HTTPD_WS_TYPE_BINARY,
       .payload = data(_data),
       .len = size(_data),
     };
-    httpd_ws_send_frame_async(msg.handle, msg.fd, &ws_pkt);
+    httpd_ws_send_frame_async(msg.sock_fd, &frame);
 
     _queue.pop();
   }
@@ -124,7 +125,7 @@ void Service::close() {
   // TODO wait for ZUSI task to suspend itself?
 
   // auto expected{Mode::ZUSI};
-  // assert(mode.compare_exchange_strong(expected, Mode::Blocked));
+  // mode.compare_exchange_strong(expected, Mode::Shutdown);
   bug_led(false);
 }
 

@@ -147,7 +147,7 @@ esp_err_t wifi_init() {
   // Common stuff
   ESP_ERROR_CHECK(esp_netif_init());
   ESP_ERROR_CHECK(esp_event_loop_create_default());
-  assert(esp_netif_create_default_wifi_sta());
+  if (!esp_netif_create_default_wifi_sta()) assert(false);
   wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
   ESP_ERROR_CHECK(esp_wifi_init(&cfg));
   ESP_ERROR_CHECK(esp_event_handler_register(
@@ -167,7 +167,7 @@ esp_err_t wifi_init() {
 esp_err_t ap_init(wifi_ap_config_t const& ap_config) {
   LOGI("ap init");
 
-  assert(esp_netif_create_default_wifi_ap());
+  if (!esp_netif_create_default_wifi_ap()) assert(false);
 
   // Temporarily set mode to STA because AP doesn't support scanning
   ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
@@ -178,7 +178,8 @@ esp_err_t ap_init(wifi_ap_config_t const& ap_config) {
   ESP_ERROR_CHECK(esp_wifi_scan_get_ap_records(&ap_count, data(ap_records)));
   ap_records_queue.handle = xQueueCreate(ap_count, sizeof(wifi_ap_record_t));
   std::ranges::for_each(ap_records, [](auto&& ap_record) {
-    assert(xQueueSend(ap_records_queue.handle, &ap_record, portMAX_DELAY));
+    if (!xQueueSend(ap_records_queue.handle, &ap_record, portMAX_DELAY))
+      assert(false);
   });
 
   // Switch to access point
@@ -203,13 +204,13 @@ esp_err_t mdns_init(wifi_mode_t mode) {
   ESP_ERROR_CHECK(::mdns_init());
 
   mem::nvs::Settings nvs;
+  auto const sta_mdns_str{nvs.getStationmDNS()};
 
   // STA mode: hostname is user setting
   // AP mode:  hostname fixed to "wulf"
-  auto const sta_mdns_str_{nvs.getStationmDNS()};
-  ESP_ERROR_CHECK(mdns_hostname_set(
-    mode == WIFI_MODE_STA && !empty(sta_mdns_str_) ? sta_mdns_str_.c_str()
-                                                   : "wulf"));
+  mdns_str =
+    mode == WIFI_MODE_STA && !empty(sta_mdns_str) ? sta_mdns_str : "wulf";
+  ESP_ERROR_CHECK(mdns_hostname_set(mdns_str.c_str()));
 
   mdns_service_add(NULL, "_http", "_tcp", 80, NULL, 0);
 

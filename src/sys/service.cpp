@@ -22,15 +22,18 @@ using namespace analog;
 /// TODO
 http::Response Service::getRequest(http::Request const& req) {
   //
-  DynamicJsonDocument doc{1024uz};
+  JsonDocument doc;
 
   doc["mode"] = magic_enum::enum_name(mode.load());
 
   auto const app_desc{esp_app_get_description()};
   doc["version"] = app_desc->version;
-  doc["idf_version"] = app_desc->idf_ver;
+  doc["project_name"] = app_desc->project_name;
+  doc["compile_time"] = app_desc->time;
   doc["compile_date"] = app_desc->date;
+  doc["idf_version"] = app_desc->idf_ver;
 
+  doc["mdns"] = wifi::mdns_str;
   doc["ip"] = wifi::ip_str;
   doc["mac"] = wifi::mac_str;
 
@@ -63,53 +66,6 @@ http::Response Service::getRequest(http::Request const& req) {
   serializeJson(doc, json);
 
   return json;
-}
-
-/// TODO
-http::Response Service::postRequest(http::Request const& req) {
-  LOGI("%s", __PRETTY_FUNCTION__);
-  LOGI("uri %s", req.uri.c_str());
-  LOGI("body %s", req.body.c_str());
-
-  // Validate body
-  if (!validate_json(req.body))
-    return std::unexpected<std::string>{"415 Unsupported Media Type"};
-
-  // Deserialize (this only creates meta data which points to the source)
-  DynamicJsonDocument doc{size(req.body) * 10u};
-  if (auto const err{deserializeJson(doc, data(req.body), size(req.body))}) {
-    LOGE("Deserialization failed %s", err.c_str());
-    return std::unexpected<std::string>{"500 Internal Server Error"};
-  }
-
-  if (JsonVariantConst v{doc["mode"]}; v.is<std::string>()) {
-    auto const str{v.as<std::string>()};
-
-    if (auto const m{magic_enum::enum_cast<Mode>(str)}) switch (*m) {
-        case Mode::Suspended: [[fallthrough]];
-        case Mode::Blocked:
-          if (auto op{Mode::DCCOperations}, serv{Mode::DCCService};
-              mode.compare_exchange_strong(op, Mode::Blocked) ||
-              mode.compare_exchange_strong(serv, Mode::Blocked))
-            return {};
-          else break;
-        case Mode::DCCOperations: [[fallthrough]];
-        case Mode::DCCService:
-          if (auto suspended{Mode::Suspended};
-              mode.compare_exchange_strong(suspended, *m)) {
-            LOGI_TASK_RESUME(dcc::task.handle);
-            LOGI_TASK_RESUME(out::track::dcc::task.handle);
-            return {};
-          } else break;
-        default: break;
-      }
-
-    // Got mode, but couldn't handle it
-    return std::unexpected<std::string>{"422 Unprocessable Entity"};
-  }
-
-  //
-  return {};
 }
 
 }  // namespace sys

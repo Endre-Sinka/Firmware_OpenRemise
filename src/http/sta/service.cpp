@@ -4,7 +4,7 @@
 /// \author Vincent Hamp
 /// \date   01/03/2023
 
-#include "server.hpp"
+#include "service.hpp"
 #include <driver/gpio.h>
 #include <esp_vfs.h>
 #include <dcc/dcc.hpp>
@@ -18,8 +18,8 @@ namespace http::sta {
 
 using namespace std::literals;
 
-/// TODO
-Server::Server() {
+/// Ctor
+Service::Service() {
   assert(_file_buffer_ptr);
 
   //
@@ -32,103 +32,99 @@ Server::Server() {
   config.send_wait_timeout = nvs.getHttpTransmitTimeout();
   config.keep_alive_enable = true;
   config.uri_match_fn = httpd_uri_match_wildcard;
-  ESP_ERROR_CHECK(httpd_start(&_server, &config));
+  ESP_ERROR_CHECK(httpd_start(&handle, &config));
 
   //
   httpd_uri_t uri{.uri = "/dcc/locos/*",
                   .method = HTTP_DELETE,
-                  .handler = make_tramp(this, &Server::deleteHandler)};
-  httpd_register_uri_handler(_server, &uri);
+                  .handler = make_tramp(this, &Service::deleteHandler)};
+  httpd_register_uri_handler(handle, &uri);
 
   //
   uri = {.uri = "/dcc/locos/*",
          .method = HTTP_GET,
-         .handler = make_tramp(this, &Server::getHandler)};
-  httpd_register_uri_handler(_server, &uri);
+         .handler = make_tramp(this, &Service::getHandler)};
+  httpd_register_uri_handler(handle, &uri);
 
   //
   uri = {.uri = "/dcc/locos/*",
          .method = HTTP_PUT,
-         .handler = make_tramp(this, &Server::putPostHandler)};
-  httpd_register_uri_handler(_server, &uri);
-
-  //
-  uri = {.uri = "/dcc/service/*",
-         .method = HTTP_GET,
-         .handler = make_tramp(this, &Server::getHandler)};
-  httpd_register_uri_handler(_server, &uri);
-
-  //
-  uri = {.uri = "/dcc/service/*",
-         .method = HTTP_PUT,
-         .handler = make_tramp(this, &Server::putPostHandler)};
-  httpd_register_uri_handler(_server, &uri);
+         .handler = make_tramp(this, &Service::putPostHandler)};
+  httpd_register_uri_handler(handle, &uri);
 
   //
   uri = {.uri = "/settings/*",
          .method = HTTP_GET,
-         .handler = make_tramp(this, &Server::getHandler)};
-  httpd_register_uri_handler(_server, &uri);
+         .handler = make_tramp(this, &Service::getHandler)};
+  httpd_register_uri_handler(handle, &uri);
 
   //
   uri = {.uri = "/settings/*",
          .method = HTTP_POST,
-         .handler = make_tramp(this, &Server::putPostHandler)};
-  httpd_register_uri_handler(_server, &uri);
+         .handler = make_tramp(this, &Service::putPostHandler)};
+  httpd_register_uri_handler(handle, &uri);
 
   //
   uri = {.uri = "/sys/*",
          .method = HTTP_GET,
-         .handler = make_tramp(this, &Server::getHandler)};
-  httpd_register_uri_handler(_server, &uri);
-
-  //
-  uri = {.uri = "/sys/*",
-         .method = HTTP_POST,
-         .handler = make_tramp(this, &Server::putPostHandler)};
-  httpd_register_uri_handler(_server, &uri);
+         .handler = make_tramp(this, &Service::getHandler)};
+  httpd_register_uri_handler(handle, &uri);
 
   //
   uri = {.uri = "/mdu/firmware/*",
          .method = HTTP_GET,
-         .handler = make_tramp(this, &Server::mduFirmwareWsHandler),
+         .handler = make_tramp(this, &Service::mduFirmwareWsHandler),
          .is_websocket = true,
          .handle_ws_control_frames = true};
-  httpd_register_uri_handler(_server, &uri);
+  httpd_register_uri_handler(handle, &uri);
 
   //
   uri = {.uri = "/mdu/zpp/*",
          .method = HTTP_GET,
-         .handler = make_tramp(this, &Server::mduZppWsHandler),
+         .handler = make_tramp(this, &Service::mduZppWsHandler),
          .is_websocket = true,
          .handle_ws_control_frames = true};
-  httpd_register_uri_handler(_server, &uri);
+  httpd_register_uri_handler(handle, &uri);
 
   //
   uri = {.uri = "/ota/*",
          .method = HTTP_GET,
-         .handler = make_tramp(this, &Server::otaWsHandler),
+         .handler = make_tramp(this, &Service::otaWsHandler),
          .is_websocket = true,
          .handle_ws_control_frames = true};
-  httpd_register_uri_handler(_server, &uri);
+  httpd_register_uri_handler(handle, &uri);
+
+  //
+  uri = {.uri = "/z21/*",
+         .method = HTTP_GET,
+         .handler = make_tramp(this, &Service::z21WsHandler),
+         .is_websocket = true,
+         .handle_ws_control_frames = true};
+  httpd_register_uri_handler(handle, &uri);
 
   //
   uri = {.uri = "/zusi/*",
          .method = HTTP_GET,
-         .handler = make_tramp(this, &Server::zusiWsHandler),
+         .handler = make_tramp(this, &Service::zusiWsHandler),
          .is_websocket = true,
          .handle_ws_control_frames = true};
-  httpd_register_uri_handler(_server, &uri);
+  httpd_register_uri_handler(handle, &uri);
 
   //
   uri = {.uri = "/*",
          .method = HTTP_GET,
-         .handler = make_tramp(this, &Server::wildcardGetHandler)};
-  httpd_register_uri_handler(_server, &uri);
+         .handler = make_tramp(this, &Service::wildcardGetHandler)};
+  httpd_register_uri_handler(handle, &uri);
+}
+
+/// Dtor
+Service::~Service() {
+  ESP_ERROR_CHECK(httpd_stop(&handle));
+  handle = NULL;
 }
 
 /// TODO
-esp_err_t Server::deleteHandler(httpd_req_t* req) {
+esp_err_t Service::deleteHandler(httpd_req_t* req) {
   LOGD("DELETE request %s", req->uri);
 
   //
@@ -146,7 +142,7 @@ esp_err_t Server::deleteHandler(httpd_req_t* req) {
 }
 
 /// TODO
-esp_err_t Server::getHandler(httpd_req_t* req) {
+esp_err_t Service::getHandler(httpd_req_t* req) {
   LOGD("GET request %s", req->uri);
 
   //
@@ -165,7 +161,7 @@ esp_err_t Server::getHandler(httpd_req_t* req) {
 }
 
 /// TODO
-esp_err_t Server::putPostHandler(httpd_req_t* req) {
+esp_err_t Service::putPostHandler(httpd_req_t* req) {
   LOGD("%s request %s", req->method == HTTP_PUT ? "PUT" : "POST", req->uri);
 
   // No content
@@ -188,32 +184,32 @@ esp_err_t Server::putPostHandler(httpd_req_t* req) {
 }
 
 // https://github.com/espressif/esp-idf/issues/11661
-// clang-format off
 #define GENERIC_WS_HANDLER(NAME, URI)                                          \
-esp_err_t Server::NAME(httpd_req_t* req) {                                     \
-  if (req->method == HTTP_GET) return ESP_OK;                                  \
-  else {                                                                       \
-    httpd_req_t cpy{.handle = req->handle,                                     \
-                    .method = req->method,                                     \
-                    .uri = URI,                                                \
-                    .content_len = req->content_len,                           \
-                    .aux = req->aux,                                           \
-                    .user_ctx = req->user_ctx,                                 \
-                    .sess_ctx = req->sess_ctx,                                 \
-                    .free_ctx = req->free_ctx,                                 \
-                    .ignore_sess_ctx_changes = req->ignore_sess_ctx_changes};  \
-    return asyncResponse(&cpy);                                                \
-  }                                                                            \
-}
-// clang-format on
+  esp_err_t Service::NAME(httpd_req_t* req) {                                  \
+    if (req->method == HTTP_GET) return ESP_OK;                                \
+    else {                                                                     \
+      httpd_req_t cpy{.handle = req->handle,                                   \
+                      .method = req->method,                                   \
+                      .uri = URI,                                              \
+                      .content_len = req->content_len,                         \
+                      .aux = req->aux,                                         \
+                      .user_ctx = req->user_ctx,                               \
+                      .sess_ctx = req->sess_ctx,                               \
+                      .free_ctx = req->free_ctx,                               \
+                      .ignore_sess_ctx_changes =                               \
+                        req->ignore_sess_ctx_changes};                         \
+      return asyncResponse(&cpy);                                              \
+    }                                                                          \
+  }
 
 GENERIC_WS_HANDLER(mduFirmwareWsHandler, "/mdu/firmware/")
 GENERIC_WS_HANDLER(mduZppWsHandler, "/mdu/zpp/")
 GENERIC_WS_HANDLER(otaWsHandler, "/ota/")
+GENERIC_WS_HANDLER(z21WsHandler, "/z21/")
 GENERIC_WS_HANDLER(zusiWsHandler, "/zusi/")
 
 /// TODO
-esp_err_t Server::wildcardGetHandler(httpd_req_t* req) {
+esp_err_t Service::wildcardGetHandler(httpd_req_t* req) {
   LOGD("GET request %s", req->uri);
 
   struct stat file_stat;
@@ -257,7 +253,7 @@ esp_err_t Server::wildcardGetHandler(httpd_req_t* req) {
   size_t chunksize;
   do {
     if (!(chunksize =
-            fread(_file_buffer_ptr.get(), sizeof(char), file_buffer_size, fd)))
+            read(fileno(fd), _file_buffer_ptr.get(), file_buffer_size)))
       continue;
     if (httpd_resp_send_chunk(req, _file_buffer_ptr.get(), chunksize) !=
         ESP_OK) {

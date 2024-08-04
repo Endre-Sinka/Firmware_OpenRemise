@@ -7,6 +7,7 @@
 #pragma once
 
 #include <driver/rmt_tx.h>
+#include <esp_http_server.h>
 #include <esp_task.h>
 #include <freertos/message_buffer.h>
 #include <freertos/queue.h>
@@ -15,7 +16,7 @@
 #include <static_math/static_math.h>
 #include <array>
 #include <atomic>
-#include <dcc_ein/dcc_ein.hpp>
+#include <dcc/dcc.hpp>
 #include <memory>
 #include <string>
 #include <ztl/implicit_wrapper.hpp>
@@ -25,7 +26,14 @@
 #  include <driver/gptimer.h>
 #  include <hal/adc_types.h>
 #elif CONFIG_IDF_TARGET_LINUX
+#  define ADC_CHANNEL_1 1
+#  define ADC_CHANNEL_2 2
+#  define ADC_CHANNEL_3 3
+#  define ADC_CHANNEL_4 4
+#  define ADC_CHANNEL_5 5
+#  define ADC_CHANNEL_6 6
 #  define ADC_CHANNEL_7 7
+#  define ADC_CHANNEL_8 8
 #  define ADC_CHANNEL_9 9
 #  define ADC_ATTEN_DB_0 0
 #  define ADC_ATTEN_DB_2_5 1
@@ -35,10 +43,54 @@
 #  define SOC_ADC_DIGI_MAX_BITWIDTH 12
 #  define SOC_ADC_DIGI_DATA_BYTES_PER_CONV 4
 #  define SOC_ADC_SAMPLE_FREQ_THRES_HIGH 83333
-#  define GPIO_NUM_45 GPIO_NUM_MAX
-#  define GPIO_NUM_46 GPIO_NUM_MAX
-#  define GPIO_NUM_47 GPIO_NUM_MAX
-#  define GPIO_NUM_48 GPIO_NUM_MAX
+#  define GPIO_NUM_1 1
+#  define GPIO_NUM_2 2
+#  define GPIO_NUM_3 3
+#  define GPIO_NUM_4 4
+#  define GPIO_NUM_5 5
+#  define GPIO_NUM_6 6
+#  define GPIO_NUM_7 7
+#  define GPIO_NUM_8 8
+#  define GPIO_NUM_9 9
+#  define GPIO_NUM_10 10
+#  define GPIO_NUM_11 11
+#  define GPIO_NUM_12 12
+#  define GPIO_NUM_13 13
+#  define GPIO_NUM_14 14
+#  define GPIO_NUM_15 15
+#  define GPIO_NUM_16 16
+#  define GPIO_NUM_17 17
+#  define GPIO_NUM_18 18
+#  define GPIO_NUM_19 19
+#  define GPIO_NUM_20 20
+#  define GPIO_NUM_21 21
+#  define GPIO_NUM_22 22
+#  define GPIO_NUM_23 23
+#  define GPIO_NUM_24 24
+#  define GPIO_NUM_25 25
+#  define GPIO_NUM_26 26
+#  define GPIO_NUM_27 27
+#  define GPIO_NUM_28 28
+#  define GPIO_NUM_29 29
+#  define GPIO_NUM_30 30
+#  define GPIO_NUM_31 31
+#  define GPIO_NUM_32 32
+#  define GPIO_NUM_33 33
+#  define GPIO_NUM_34 34
+#  define GPIO_NUM_35 35
+#  define GPIO_NUM_36 36
+#  define GPIO_NUM_37 37
+#  define GPIO_NUM_38 38
+#  define GPIO_NUM_39 39
+#  define GPIO_NUM_40 40
+#  define GPIO_NUM_41 41
+#  define GPIO_NUM_42 42
+#  define GPIO_NUM_43 43
+#  define GPIO_NUM_44 44
+#  define GPIO_NUM_45 45
+#  define GPIO_NUM_46 46
+#  define GPIO_NUM_47 47
+#  define GPIO_NUM_48 48
 #else
 #  error "Unsupported SOC"
 #endif
@@ -83,28 +135,28 @@ inline constexpr auto bug_led_gpio_num{GPIO_NUM_48};
 
 enum class Mode : uint8_t {
   //
-  Suspended,
-  Blocked,
+  Suspended,  ///<
+  Shutdown,   ///<
 
   // USB protocols
-  DCC_EIN,
-  DECUP_EIN,
-  MDUSNDPREP,
-  SUSIV2,
+  DCC_EIN,     ///<
+  DECUP_EIN,   ///<
+  MDUSNDPREP,  ///<
+  SUSIV2,      ///<
 
   //
-  DCCOperations,
-  DCCService,
+  DCCOperations,  ///<
+  DCCService,     ///<
 
   //
-  ZUSI,
+  ZUSI,  ///<
 
   //
-  MDUFirmware,
-  MDUZpp,
+  MDUFirmware,  ///<
+  MDUZpp,       ///<
 
   //
-  OTA
+  OTA  ///<
 };
 
 /// Restricts access to low-level tasks
@@ -200,11 +252,17 @@ inline struct TemperatureQueue {
 
 namespace dcc {
 
+inline constexpr auto priority_bits{5u};
+
+class Service;
+inline std::shared_ptr<Service> service;
+
 ///
 inline struct Task {
   static constexpr auto name{"dcc"};
   static constexpr auto stack_depth{4096uz};
   static constexpr UBaseType_t priority{2u};
+  static constexpr auto timeout{100u};
   TaskHandle_t handle{};
 } task;
 
@@ -212,13 +270,16 @@ inline struct Task {
 
 namespace http {
 
-namespace sta {
+/// Handle to server instance
+inline httpd_handle_t handle{};
 
 /// Size of internal RAM reserved for serving files from SPIFFS
 inline constexpr auto file_buffer_size{16384uz};
 
-class Server;
-inline std::shared_ptr<Server> server;
+namespace sta {
+
+class Service;
+inline std::shared_ptr<Service> service;
 
 }  // namespace sta
 
@@ -302,7 +363,10 @@ inline constexpr auto enable_gpio_num{d12_gpio_num};
 
 ///
 inline struct RxQueue {
-  using value_type = dcc_ein::AddressedDatagram;
+  struct value_type {
+    dcc::Packet packet{};
+    dcc::bidi::Datagram<> datagram{};
+  };
   static constexpr auto size{32uz};
   QueueHandle_t handle{};
 } rx_queue;
@@ -320,7 +384,6 @@ inline struct Task {
   static constexpr auto name{"out::track::dcc"};
   static constexpr auto stack_depth{4096uz};
   static constexpr UBaseType_t priority{ESP_TASK_PRIO_MAX - 1u};
-  static constexpr auto timeout{500u};
   TaskHandle_t handle{};
 } task;
 
@@ -332,8 +395,7 @@ namespace mdu {
 inline struct Task {
   static constexpr auto name{"out::track::mdu"};
   static constexpr auto stack_depth{4096uz};
-  // Must be lower than ADC to not starve it
-  static constexpr UBaseType_t priority{analog::adc_task.priority - 1u};
+  static constexpr UBaseType_t priority{ESP_TASK_PRIO_MAX - 1u};
   static constexpr auto timeout{10'000u};
   TaskHandle_t handle{};
 } task;
@@ -363,12 +425,8 @@ inline struct Task {
 
 namespace udp {
 
-inline struct Task {
-  static constexpr auto name{"udp"};
-  static constexpr auto stack_depth{4096uz};
-  static constexpr UBaseType_t priority{5u};
-  TaskHandle_t handle{};
-} task;
+inline constexpr uint16_t port{21105u};
+inline int sock_fd;
 
 }  // namespace udp
 
@@ -380,7 +438,7 @@ inline constexpr auto buffer_size{512uz};
 ///
 inline struct RxTask {
   static constexpr auto name{"usb::rx"};
-  static constexpr auto stack_depth{4096uz};
+  static constexpr auto stack_depth{3072uz};
   static constexpr UBaseType_t priority{5u};
   static constexpr auto timeout{100u};
   TaskHandle_t handle{};
@@ -389,7 +447,7 @@ inline struct RxTask {
 ///
 inline struct TxTask {
   static constexpr auto name{"usb::tx"};
-  static constexpr auto stack_depth{4096uz};
+  static constexpr auto stack_depth{3072uz};
   static constexpr UBaseType_t priority{1u};
   static constexpr auto timeout{20u};
   TaskHandle_t handle{};
@@ -412,16 +470,16 @@ namespace dcc_ein {
 ///
 inline struct RxTask {
   static constexpr auto name{"usb::dcc_ein::rx"};
-  static constexpr auto stack_depth{4096uz};
+  static constexpr auto stack_depth{3072uz};
   static constexpr UBaseType_t priority{::usb::rx_task.priority};
-  static constexpr auto timeout{out::track::dcc::task.timeout};
+  static constexpr auto timeout{100u};
   TaskHandle_t handle{};
 } rx_task;
 
 ///
 inline struct TxTask {
   static constexpr auto name{"usb::dcc_ein::tx"};
-  static constexpr auto stack_depth{4096uz};
+  static constexpr auto stack_depth{2048uz};
   static constexpr UBaseType_t priority{::usb::tx_task.priority - 1u};
   static constexpr auto timeout{100u};
   TaskHandle_t handle{};
@@ -440,7 +498,7 @@ inline constexpr auto buffer_size{268uz};
 ///
 inline struct RxTask {
   static constexpr auto name{"usb::susiv2::rx"};
-  static constexpr auto stack_depth{4096uz};
+  static constexpr auto stack_depth{3072uz};
   static constexpr UBaseType_t priority{::usb::rx_task.priority};
   static constexpr auto timeout{::out::zusi::task.timeout};
   TaskHandle_t handle{};
@@ -449,7 +507,7 @@ inline struct RxTask {
 ///
 inline struct TxTask {
   static constexpr auto name{"usb::susiv2::tx"};
-  static constexpr auto stack_depth{4096uz};
+  static constexpr auto stack_depth{2048uz};
   static constexpr UBaseType_t priority{::usb::tx_task.priority - 1u};
   static constexpr auto timeout{100u};
   TaskHandle_t handle{};
@@ -464,6 +522,7 @@ namespace wifi {
 inline constexpr auto force_ap_init_gpio_num{GPIO_NUM_3};
 inline constexpr auto led_gpio_num{GPIO_NUM_47};
 
+inline std::string mdns_str;
 inline std::string ip_str;
 inline std::array<uint8_t, 6uz> mac;
 inline std::string mac_str(2uz * 6uz + 5uz + sizeof('\n'), '\0');
@@ -474,3 +533,19 @@ inline struct ApRecordsQueue {
 } ap_records_queue;
 
 }  // namespace wifi
+
+namespace z21 {
+
+///
+inline struct RxTask {
+  static constexpr auto name{"z21"};
+  static constexpr auto stack_depth{6144uz};
+  static constexpr UBaseType_t priority{5u};
+  static constexpr auto timeout{500u};
+  TaskHandle_t handle{};
+} task;
+
+class Service;
+inline std::shared_ptr<Service> service;
+
+}  // namespace z21
