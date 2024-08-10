@@ -15,7 +15,7 @@ if(IDF_TARGET STREQUAL linux)
   list(APPEND EXTRA_COMPONENT_DIRS tests $ENV{IDF_PATH}/tools/mocks/driver)
 endif()
 
-include($ENV{IDF_PATH}/tools/cmake/project.cmake)
+include($ENV{IDF_PATH}/tools/cmake/project.cmake OPTIONAL)
 
 # Project version is taken from git describe
 project(Firmware LANGUAGES ASM C CXX)

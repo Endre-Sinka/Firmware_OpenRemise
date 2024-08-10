@@ -32,7 +32,7 @@ jobs:
           sudo apt update -y
           sudo apt install -y doxygen graphviz mscgen
       - run: cmake -Bbuild
-      - run: cmake --build build --parallel --target OpenRemiseDocs
+      - run: cmake --build build --parallel --target FirmwareDocs
       - name: Setup Pages
         uses: actions/configure-pages@v5
       - name: Upload artifact
