@@ -1,3 +1,9 @@
+/// Initialize peripherals when resuming MDU task
+///
+/// \file   out/track/mdu/resume.hpp
+/// \author Vincent Hamp
+/// \date   10/04/2024
+
 #pragma once
 
 #include <driver/gpio.h>

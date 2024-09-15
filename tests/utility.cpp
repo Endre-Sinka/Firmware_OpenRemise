@@ -29,17 +29,17 @@ TEST(utility, validate_json) {
 }
 
 TEST(utility, uri2address) {
-  EXPECT_EQ(uri2address("http://wulf.local/dcc/locos/3"), 3u);
-  EXPECT_EQ(uri2address("http://wulf.local/dcc/locos/42"), 42u);
-  EXPECT_FALSE(uri2address("http://wulf.local/dcc/locos/x4-2"));
+  EXPECT_EQ(uri2address("http://remise.local/dcc/locos/3"), 3u);
+  EXPECT_EQ(uri2address("http://remise.local/dcc/locos/42"), 42u);
+  EXPECT_FALSE(uri2address("http://remise.local/dcc/locos/x4-2"));
 }
 
 TEST(utility, uri2loco_address) {
-  auto addr_short{uri2loco_address("http://wulf.local/dcc/locos/3")};
+  auto addr_short{uri2loco_address("http://remise.local/dcc/locos/3")};
   EXPECT_EQ(addr_short, 3);
   EXPECT_EQ(addr_short->type, dcc::Address::Short);
-  auto addr_long{uri2loco_address("http://wulf.local/dcc/locos/266")};
+  auto addr_long{uri2loco_address("http://remise.local/dcc/locos/266")};
   EXPECT_EQ(addr_long, 266);
   EXPECT_EQ(addr_long->type, dcc::Address::Long);
-  EXPECT_FALSE(uri2address("http://wulf.local/dcc/locos/.dk182"));
+  EXPECT_FALSE(uri2address("http://remise.local/dcc/locos/.dk182"));
 }

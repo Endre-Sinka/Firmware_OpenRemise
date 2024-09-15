@@ -10,7 +10,7 @@
 
 namespace out {
 
-/// TODO
+/// \todo document
 esp_err_t init_gptimer() {
   static constexpr gptimer_config_t timer_config{
     .clk_src = GPTIMER_CLK_SRC_DEFAULT,
@@ -25,7 +25,7 @@ esp_err_t init_gptimer() {
   return gptimer_register_event_callbacks(gptimer, &cbs, NULL);
 }
 
-/// TODO
+/// \todo document
 esp_err_t init(BaseType_t xCoreID) {
   rx_message_buffer.handle = xMessageBufferCreate(rx_message_buffer.size);
   tx_message_buffer.front_handle = xMessageBufferCreate(tx_message_buffer.size);

@@ -8,11 +8,11 @@ namespace z21 {
 
 using namespace std::literals;
 
-/// TODO
+/// \todo document
 Service::Service(BaseType_t xCoreID) {
   if (!xTaskCreatePinnedToCore(make_tramp(this, &Service::taskFunction),
                                task.name,
-                               task.stack_depth,
+                               task.stack_size,
                                NULL,
                                task.priority,
                                &task.handle,
@@ -20,7 +20,7 @@ Service::Service(BaseType_t xCoreID) {
     assert(false);
 }
 
-/// TODO
+/// \todo document
 Service::~Service() {
   if (task.handle) vTaskDelete(task.handle);
 }
@@ -30,7 +30,9 @@ void Service::dcc(std::shared_ptr<z21::server::intf::Dcc> dcc_service) {
   _dcc_service = dcc_service;
 }
 
-/// TODO
+/// \todo document
+/// \bug if the socket cloases for any reason we're fucked, there must be some
+/// way to detect such cases and restart the socket in the Frontend?
 esp_err_t Service::socket(http::Message& msg) {
   switch (msg.type) {
     case HTTPD_WS_TYPE_BINARY: {
@@ -54,7 +56,7 @@ esp_err_t Service::socket(http::Message& msg) {
       break;
     }
     case HTTPD_WS_TYPE_CLOSE:
-      // TODO implicit power off here if there are no more clients registered?
+      /// \todo implicit power off here if there are no more clients registered?
       _ws_sock_fds.erase(msg.sock_fd);
       break;
     default: break;
@@ -63,7 +65,7 @@ esp_err_t Service::socket(http::Message& msg) {
   return ESP_OK;
 }
 
-/// TODO
+/// \todo document
 void Service::taskFunction(void*) {
   std::array<uint8_t, Z21_MAX_PAYLOAD_SIZE> stack;
   sockaddr_in dest_addr_ip4;
@@ -129,7 +131,7 @@ void Service::transmit(z21::Socket const& sock,
 
 ///
 bool Service::trackPower(bool on) {
-  return trackPower(on, Mode::DCCOperations);
+  return trackPower(on, State::DCCOperations);
 }
 
 ///
@@ -138,11 +140,10 @@ bool Service::stop() {
   return true;
 }
 
-///
+/// \todo document
 void Service::logoff(z21::Socket const& sock) {
   printf("%s\n", __PRETTY_FUNCTION__);
-  // TODO
-  // broadcasting stop might be a good idea here...
+  /// \todo should this broadcast stop? if there are no more clients?
   if (empty(clients())) trackPower(false);
 }
 
@@ -175,12 +176,12 @@ z21::LocoInfo Service::locoInfo(uint16_t addr) {
 
 ///
 bool Service::cvRead(uint16_t cv_addr) {
-  return trackPower(true, Mode::DCCService) && _dcc_service->cvRead(cv_addr);
+  return trackPower(true, State::DCCService) && _dcc_service->cvRead(cv_addr);
 }
 
 ///
 bool Service::cvWrite(uint16_t cv_addr, uint8_t byte) {
-  return trackPower(true, Mode::DCCService) &&
+  return trackPower(true, State::DCCService) &&
          _dcc_service->cvWrite(cv_addr, byte);
 }
 
@@ -195,28 +196,34 @@ void Service::cvPomWrite(uint16_t addr, uint16_t cv_addr, uint8_t byte) {
 }
 
 ///
-bool Service::trackPower(bool on, Mode dcc_mode) {
+bool Service::trackPower(bool on, State dcc_state) {
   if (on) {
-    switch (mode.load()) {
-      // Wait for shutdown to complete
-      case Mode::Shutdown:
-        while (mode.load() != Mode::Suspended)
+    switch (state.load()) {
+      // Wait for suspend to complete
+      case State::Suspend:
+        while (state.load() != State::Suspended)
           vTaskDelay(pdMS_TO_TICKS(task.timeout));
         [[fallthrough]];
 
+      // Clear errors
+      case State::ShortCircuit:
+        state.store(State::Suspended);
+        bug_led(false);
+        [[fallthrough]];
+
       //
-      case Mode::Suspended:
+      case State::Suspended:
         while (eTaskGetState(out::track::dcc::task.handle) != eSuspended)
           vTaskDelay(pdMS_TO_TICKS(task.timeout));
-        if (auto expected{Mode::Suspended};
-            mode.compare_exchange_strong(expected, dcc_mode))
+        if (auto expected{State::Suspended};
+            state.compare_exchange_strong(expected, dcc_state))
           LOGI_TASK_RESUME(dcc::task.handle);
         else assert(false);
         [[fallthrough]];
 
       // Already running
-      case Mode::DCCService: [[fallthrough]];
-      case Mode::DCCOperations: return true;
+      case State::DCCOperations: [[fallthrough]];
+      case State::DCCService: return true;
 
       //
       default:
@@ -226,12 +233,11 @@ bool Service::trackPower(bool on, Mode dcc_mode) {
     }
   } else {
 
-    // This does... never... happen? TODO
-    // Z21 app NEVER turn power off -.-
-    if (auto op{Mode::DCCOperations}, serv{Mode::DCCService};
-        mode.compare_exchange_strong(op, Mode::Shutdown) ||
-        mode.compare_exchange_strong(serv, Mode::Shutdown))
-      ;
+    /// \todo does... never... happen? Z21 app NEVER turn power off -.-
+    auto expected{State::DCCOperations};
+    state.compare_exchange_strong(expected, State::Suspend);
+    expected = State::DCCService;
+    state.compare_exchange_strong(expected, State::Suspend);
 
     return true;
   }

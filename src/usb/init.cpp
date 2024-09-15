@@ -8,12 +8,11 @@
 #include <tinyusb.h>
 #include <tusb_cdc_acm.h>
 #include <array>
-#include "dcc_ein/rx_task_function.hpp"
-#include "dcc_ein/tx_task_function.hpp"
+#include "dcc_ein/task_function.hpp"
+#include "decup_ein/task_function.hpp"
 #include "log.h"
 #include "rx_task_function.hpp"
-#include "susiv2/rx_task_function.hpp"
-#include "susiv2/tx_task_function.hpp"
+#include "susiv2/task_function.hpp"
 #include "tx_task_function.hpp"
 
 namespace usb {
@@ -42,7 +41,7 @@ void tinyusb_cdc_rx_callback(int, cdcacm_event_t*) {
 /// protocol tasks. The following protocols are supported:
 /// - DCC_EIN
 /// - DECUP_EIN
-/// - MDUSNDPREP
+/// - MDU_EIN
 /// - SUSIV2
 ///
 /// \return ESP_OK  No error
@@ -54,7 +53,7 @@ esp_err_t init(BaseType_t xCoreID) {
 
   if (!xTaskCreatePinnedToCore(rx_task_function,
                                rx_task.name,
-                               rx_task.stack_depth,
+                               rx_task.stack_size,
                                NULL,
                                rx_task.priority,
                                &rx_task.handle,
@@ -62,45 +61,35 @@ esp_err_t init(BaseType_t xCoreID) {
     assert(false);
   if (!xTaskCreatePinnedToCore(tx_task_function,
                                tx_task.name,
-                               tx_task.stack_depth,
+                               tx_task.stack_size,
                                NULL,
                                tx_task.priority,
                                &tx_task.handle,
                                xCoreID))
     assert(false);
 
-  if (!xTaskCreatePinnedToCore(dcc_ein::rx_task_function,
-                               dcc_ein::rx_task.name,
-                               dcc_ein::rx_task.stack_depth,
+  if (!xTaskCreatePinnedToCore(dcc_ein::task_function,
+                               dcc_ein::task.name,
+                               dcc_ein::task.stack_size,
                                NULL,
-                               dcc_ein::rx_task.priority,
-                               &dcc_ein::rx_task.handle,
+                               dcc_ein::task.priority,
+                               &dcc_ein::task.handle,
                                xCoreID))
     assert(false);
-  if (!xTaskCreatePinnedToCore(susiv2::rx_task_function,
-                               susiv2::rx_task.name,
-                               susiv2::rx_task.stack_depth,
+  if (!xTaskCreatePinnedToCore(decup_ein::task_function,
+                               decup_ein::task.name,
+                               decup_ein::task.stack_size,
                                NULL,
-                               susiv2::rx_task.priority,
-                               &susiv2::rx_task.handle,
+                               decup_ein::task.priority,
+                               &decup_ein::task.handle,
                                xCoreID))
     assert(false);
-
-  // Transmit tasks must have lower priority than usb::tx_task
-  if (!xTaskCreatePinnedToCore(dcc_ein::tx_task_function,
-                               dcc_ein::tx_task.name,
-                               dcc_ein::tx_task.stack_depth,
+  if (!xTaskCreatePinnedToCore(susiv2::task_function,
+                               susiv2::task.name,
+                               susiv2::task.stack_size,
                                NULL,
-                               dcc_ein::tx_task.priority,
-                               &dcc_ein::tx_task.handle,
-                               xCoreID))
-    assert(false);
-  if (!xTaskCreatePinnedToCore(susiv2::tx_task_function,
-                               susiv2::tx_task.name,
-                               susiv2::tx_task.stack_depth,
-                               NULL,
-                               susiv2::tx_task.priority,
-                               &susiv2::tx_task.handle,
+                               susiv2::task.priority,
+                               &susiv2::task.handle,
                                xCoreID))
     assert(false);
 

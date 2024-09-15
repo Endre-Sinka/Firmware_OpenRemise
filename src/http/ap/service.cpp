@@ -106,9 +106,8 @@ void Service::getConfig() {
   // Read SSID
   _sta_ssid_str = nvs.getStationSSID();
 
-  // Read password (and hide it)
+  // Read password
   _sta_pass_str = nvs.getStationPassword();
-  std::ranges::fill(_sta_pass_str, '*');
 }
 
 ///

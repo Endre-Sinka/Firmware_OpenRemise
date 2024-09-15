@@ -1,16 +1,16 @@
-/// WiFi documentation
+/// HTTP documentation
 ///
-/// \file   wifi/doxygen.hpp
+/// \file   http/doxygen.hpp
 /// \author Vincent Hamp
 /// \date   19/02/2023
 
 #pragma once
 
-namespace wifi {
+namespace http {
 
-/// \page page_wifi WiFi
+/// \page page_http HTTP
 /// \tableofcontents
-/// TODO WiFi page
+/// \todo document HTTP page
 ///
 
-}  // namespace wifi
+}  // namespace http

@@ -23,14 +23,14 @@ namespace wifi {
 
 namespace {
 
-/// TODO
+/// \todo document
 void led(uint32_t level) {
   ESP_ERROR_CHECK(gpio_set_level(led_gpio_num, level));
 }
 
-/// TODO
+/// \todo document
 wifi_ap_config_t ap_config() {
-  constexpr auto ssid{"WULF"};
+  constexpr auto ssid{"OpenRemise"};
   constexpr auto ssid_len{ztl::strlen(ssid)};
   wifi_ap_config_t ap{};
   memcpy(&ap.ssid, ssid, ssid_len);
@@ -44,7 +44,7 @@ wifi_ap_config_t ap_config() {
   return ap;
 }
 
-/// TODO
+/// \todo document
 std::optional<wifi_sta_config_t> optional_sta_config() {
   mem::nvs::Settings nvs;
   wifi_sta_config_t sta{};
@@ -71,7 +71,7 @@ std::optional<wifi_sta_config_t> optional_sta_config() {
   return sta;
 }
 
-/// TODO
+/// \todo document
 void event_handler(void*,
                    esp_event_base_t event_base,
                    int32_t event_id,
@@ -126,7 +126,7 @@ void event_handler(void*,
   }
 }
 
-/// TODO
+/// \todo document
 esp_err_t gpio_init() {
   // Pulling this GPIO low can force AP init
   gpio_config_t io_conf{.pin_bit_mask = 1ull << force_ap_init_gpio_num,
@@ -142,7 +142,7 @@ esp_err_t gpio_init() {
   return gpio_config(&io_conf);
 }
 
-/// TODO
+/// \todo document
 esp_err_t wifi_init() {
   // Common stuff
   ESP_ERROR_CHECK(esp_netif_init());
@@ -163,7 +163,7 @@ esp_err_t wifi_init() {
   return esp_wifi_start();
 }
 
-/// TODO
+/// \todo document
 esp_err_t ap_init(wifi_ap_config_t const& ap_config) {
   LOGI("ap init");
 
@@ -189,7 +189,7 @@ esp_err_t ap_init(wifi_ap_config_t const& ap_config) {
   return ESP_OK;
 }
 
-/// TODO
+/// \todo document
 esp_err_t sta_init(wifi_sta_config_t const& sta_config) {
   LOGI("sta init");
   wifi_config_t wifi_config{.sta = sta_config};
@@ -199,7 +199,7 @@ esp_err_t sta_init(wifi_sta_config_t const& sta_config) {
   return ESP_OK;
 }
 
-/// TODO
+/// \todo document
 esp_err_t mdns_init(wifi_mode_t mode) {
   ESP_ERROR_CHECK(::mdns_init());
 
@@ -207,9 +207,9 @@ esp_err_t mdns_init(wifi_mode_t mode) {
   auto const sta_mdns_str{nvs.getStationmDNS()};
 
   // STA mode: hostname is user setting
-  // AP mode:  hostname fixed to "wulf"
+  // AP mode:  hostname fixed to "remise"
   mdns_str =
-    mode == WIFI_MODE_STA && !empty(sta_mdns_str) ? sta_mdns_str : "wulf";
+    mode == WIFI_MODE_STA && !empty(sta_mdns_str) ? sta_mdns_str : "remise";
   ESP_ERROR_CHECK(mdns_hostname_set(mdns_str.c_str()));
 
   mdns_service_add(NULL, "_http", "_tcp", 80, NULL, 0);

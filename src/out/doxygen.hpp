@@ -6,11 +6,11 @@
 
 #pragma once
 
-namespace mem {
+namespace out {
 
 /// \page page_out Out
 /// \tableofcontents
-/// TODO out page
+/// \todo document out page
 ///
 
-}  // namespace mem
+}  // namespace out

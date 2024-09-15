@@ -9,13 +9,15 @@
 
 namespace out::track {
 
-/// TODO
+/// \todo document
+/// \bug currently ignored... should be 500mA for DCC serv, MDU and DECUP, user
+/// setting for DCC op
 CurrentLimit get_current_limit() {
   return static_cast<CurrentLimit>((gpio_get_level(isel1_gpio_num) << 1u) |
                                    (gpio_get_level(isel0_gpio_num) << 0u));
 }
 
-/// TODO
+/// \todo document
 esp_err_t set_current_limit(CurrentLimit current_limit) {
   switch (current_limit) {
     case CurrentLimit::_500mA:

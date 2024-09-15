@@ -10,7 +10,7 @@ namespace dcc {
 
 /// \page page_dcc DCC
 /// \tableofcontents
-/// TODO DCC page
+/// \todo document DCC page
 ///
 
 }  // namespace dcc

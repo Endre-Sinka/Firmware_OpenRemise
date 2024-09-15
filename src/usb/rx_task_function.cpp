@@ -26,8 +26,7 @@ using namespace std::literals;
 void transmit_ping() {
 #if CONFIG_IDF_TARGET_ESP32S3
   auto const app_desc{esp_app_get_description()};
-  auto const ping{ulf::com::ping(
-    /*app_desc->project_name*/ "WULF", app_desc->version + 1, 'D')};
+  auto const ping{ulf::com::ping("OpenRemise", app_desc->version + 1, 'D')};
   xStreamBufferSend(tx_stream_buffer.handle, data(ping), size(ping), 0u);
 #endif
 }
@@ -37,10 +36,9 @@ void transmit_ping() {
 /// \return true if any protocol task is active
 /// \return false if no protocol task is active
 bool any_protocol_task_active() {
-  return eTaskGetState(dcc_ein::rx_task.handle) < eSuspended ||
-         eTaskGetState(dcc_ein::tx_task.handle) < eSuspended ||
-         eTaskGetState(susiv2::tx_task.handle) < eSuspended ||
-         eTaskGetState(susiv2::tx_task.handle) < eSuspended;
+  return eTaskGetState(dcc_ein::task.handle) < eSuspended ||
+         eTaskGetState(decup_ein::task.handle) < eSuspended ||
+         eTaskGetState(susiv2::task.handle) < eSuspended;
 }
 
 namespace {
@@ -68,19 +66,20 @@ void loop() {
       else if (cmd == "PING\r"sv) transmit_ping();
       // Resume DCC_EIN protocol tasks
       else if (cmd == "DCC_EIN\r"sv) {
-        LOGI_TASK_RESUME(dcc_ein::rx_task.handle);
-        LOGI_TASK_RESUME(dcc_ein::tx_task.handle);
+        LOGI_TASK_RESUME(dcc_ein::task.handle);
         break;
       }
       // Resume DECUP_EIN protocol tasks
-      else if (cmd == "DECUP_EIN\r"sv)
-        LOGW("DECUP_EIN protocol not implemented");
+      else if (cmd == "DECUP_EIN\r"sv) {
+        LOGI_TASK_RESUME(decup_ein::task.handle);
+        break;
+      }
       // Resume MDU_EIN protocol tasks
-      else if (cmd == "MDU_EIN\r"sv) LOGW("MDU_EIN protocol not implemented");
+      else if (cmd == "MDU_EIN\r"sv)
+        LOGW("MDU_EIN protocol not implemented");
       // Resume SUSIV2 protocol tasks
       else if (cmd == "SUSIV2\r"sv) {
-        LOGI_TASK_RESUME(susiv2::rx_task.handle);
-        LOGI_TASK_RESUME(susiv2::tx_task.handle);
+        LOGI_TASK_RESUME(susiv2::task.handle);
         break;
       }
     }

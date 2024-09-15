@@ -15,7 +15,7 @@ namespace out::zusi {
 
 namespace {
 
-/// TODO
+/// \todo document
 esp_err_t deinit_gpio() {
   ESP_ERROR_CHECK(gpio_set_direction(data_gpio_num, GPIO_MODE_OUTPUT));
   esp_rom_gpio_connect_out_signal(
@@ -27,7 +27,7 @@ esp_err_t deinit_gpio() {
   return gpio_set_level(enable_gpio_num, 0u);
 }
 
-/// TODO
+/// \todo document
 esp_err_t deinit_alarm() {
   gptimer_stop(gptimer);
   ESP_ERROR_CHECK(gptimer_set_raw_count(gptimer, 0ull));
@@ -39,7 +39,7 @@ esp_err_t deinit_alarm() {
 
 }  // namespace
 
-/// TODO
+/// \todo document
 esp_err_t suspend() {
   ESP_ERROR_CHECK(deinit_gpio());
   ESP_ERROR_CHECK(deinit_alarm());

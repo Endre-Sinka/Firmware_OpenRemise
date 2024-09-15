@@ -19,12 +19,12 @@ namespace sys {
 
 using namespace analog;
 
-/// TODO
+/// \todo document
 http::Response Service::getRequest(http::Request const& req) {
   //
   JsonDocument doc;
 
-  doc["mode"] = magic_enum::enum_name(mode.load());
+  doc["state"] = magic_enum::enum_name(state.load());
 
   auto const app_desc{esp_app_get_description()};
   doc["version"] = app_desc->version;

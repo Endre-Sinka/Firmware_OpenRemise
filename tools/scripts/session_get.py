@@ -4,4 +4,4 @@ import datetime, requests
 s = requests.Session()
 finish_time = datetime.datetime.now() + datetime.timedelta(hours=2)
 while datetime.datetime.now() < finish_time:
-    s.get("http://wulf.local/main.dart.js")
+    s.get("http://remise.local/main.dart.js")

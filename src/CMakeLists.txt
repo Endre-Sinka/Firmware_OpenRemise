@@ -1,6 +1,6 @@
 set(COMMON_SRC
-    dcc/loco.cpp out/track/current_limit.cpp usb/dcc_ein/rx_task_function.cpp
-    usb/dcc_ein/tx_task_function.cpp usb/rx_task_function.cpp utility.cpp)
+    dcc/loco.cpp out/track/current_limit.cpp usb/dcc_ein/task_function.cpp
+    usb/rx_task_function.cpp utility.cpp)
 
 if(IDF_TARGET STREQUAL linux)
   idf_component_register(
@@ -31,10 +31,10 @@ else()
     http/sta/init.cpp
     http/sta/service.cpp
     http/init.cpp
-    mdu/firmware_service.cpp
     mdu/init.cpp
     mdu/service.cpp
     mdu/zpp_service.cpp
+    mdu/zsu_service.cpp
     mem/nvs/accessories.cpp
     mem/nvs/base.cpp
     mem/nvs/init.cpp
@@ -47,6 +47,10 @@ else()
     out/track/dcc/resume.cpp
     out/track/dcc/suspend.cpp
     out/track/dcc/task_function.cpp
+    out/track/decup/resume.cpp
+    out/track/decup/rmt_decup_encoder.c
+    out/track/decup/suspend.cpp
+    out/track/decup/task_function.cpp
     out/track/mdu/resume.cpp
     out/track/mdu/suspend.cpp
     out/track/mdu/task_function.cpp
@@ -55,7 +59,6 @@ else()
     out/zusi/resume.cpp
     out/zusi/suspend.cpp
     out/zusi/task_function.cpp
-    out/zusi/zpp_load.cpp
     out/init.cpp
     out/suspend.cpp
     settings/init.cpp
@@ -63,8 +66,8 @@ else()
     sys/init.cpp
     sys/service.cpp
     udp/init.cpp
-    usb/susiv2/rx_task_function.cpp
-    usb/susiv2/tx_task_function.cpp
+    usb/decup_ein/task_function.cpp
+    usb/susiv2/task_function.cpp
     usb/init.cpp
     usb/rx_task_function.cpp
     usb/tx_task_function.cpp
@@ -120,11 +123,63 @@ idf_build_set_property(
   "-Wno-error=all;-Wno-error=extra;-Wno-error=implicit-function-declaration;-Wno-error=format;-Wno-error=switch"
   APPEND)
 
-cpmaddpackage("gh:ZIMO-Elektronik/ZUSI@0.7.0")
 cpmaddpackage("gh:ZIMO-Elektronik/ULF_COM@0.0.1")
-cpmaddpackage("gh:ZIMO-Elektronik/ULF_DCC_EIN@0.3.0")
-cpmaddpackage("gh:Neargye/magic_enum@0.9.6")
+cpmaddpackage("gh:ZIMO-Elektronik/ULF_DCC_EIN@0.3.1")
 cpmaddpackage("gh:microsoft/GSL@4.0.0")
+cpmaddpackage("gh:Neargye/magic_enum@0.9.6")
+
+# According to this answer here https://stackoverflow.com/a/55312360/5840652
+# magic enum works up to INT16_MAX
+math(EXPR INT16_MAX "(1 << 15) - 1" OUTPUT_FORMAT DECIMAL)
+target_compile_definitions(
+  magic_enum INTERFACE MAGIC_ENUM_RANGE_MIN=0 MAGIC_ENUM_RANGE_MAX=${INT16_MAX})
+
+# Currently still private, force SSH
+cpmaddpackage(
+  NAME
+  DECUP
+  GIT_REPOSITORY
+  "git@github.com:ZIMO-Elektronik/DECUP"
+  GIT_TAG
+  tx
+  SYSTEM
+  YES)
+cpmaddpackage(
+  NAME
+  ULF_DECUP_EIN
+  GIT_REPOSITORY
+  "git@github.com:ZIMO-Elektronik/ULF_DECUP_EIN"
+  GIT_TAG
+  tx
+  SYSTEM
+  YES)
+cpmaddpackage(
+  NAME
+  ULF_MDU_EIN
+  GIT_REPOSITORY
+  "git@github.com:ZIMO-Elektronik/ULF_MDU_EIN"
+  GIT_TAG
+  tx
+  SYSTEM
+  YES)
+cpmaddpackage(
+  NAME
+  ULF_SUSIV2
+  GIT_REPOSITORY
+  "git@github.com:ZIMO-Elektronik/ULF_SUSIV2"
+  GIT_TAG
+  tx
+  SYSTEM
+  YES)
+cpmaddpackage(
+  NAME
+  ZUSI
+  GIT_REPOSITORY
+  "git@github.com:ZIMO-Elektronik/ZUSI"
+  VERSION
+  0.7.0
+  SYSTEM
+  YES)
 
 # fmt install option does not play nice with ESP-IDF
 cpmaddpackage(
@@ -142,11 +197,15 @@ cpmaddpackage(
 
 target_link_libraries(
   ${COMPONENT_LIB}
-  PUBLIC fmt::fmt
+  PUBLIC DECUP::DECUP
+         fmt::fmt
          magic_enum::magic_enum
          Microsoft.GSL::GSL
          ULF::COM
          ULF::DCC_EIN
+         ULF::DECUP_EIN
+         ULF::MDU_EIN
+         ULF::SUSIV2
          Z21::Z21
          ZUSI::ZUSI)
 

@@ -1,4 +1,4 @@
-/// TODO
+/// \todo document
 ///
 /// \file   out/suspend.hpp
 /// \author Vincent Hamp

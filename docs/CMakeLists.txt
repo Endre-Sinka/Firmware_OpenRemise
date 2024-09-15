@@ -7,6 +7,10 @@ if(Doxygen_FOUND)
        "https://github.com/OpenRemise/.github/raw/master/data/images/logo.svg"
        ${CMAKE_SOURCE_DIR}/data/images/logo.svg)
 
+  # Couldn't get this to work yet
+  file(DOWNLOAD "https://kicanvas.org/kicanvas/kicanvas.js"
+       ${CMAKE_CURRENT_BINARY_DIR}/html/kicanvas.js)
+
   set(DOXYGEN_PROJECT_LOGO ${CMAKE_SOURCE_DIR}/data/images/logo.svg)
   set(DOXYGEN_MULTILINE_CPP_IS_BRIEF YES)
   set(DOXYGEN_BUILTIN_STL_SUPPORT YES)
@@ -17,7 +21,7 @@ if(Doxygen_FOUND)
   set(DOXYGEN_EXTRACT_LOCAL_CLASSES YES)
   set(DOXYGEN_EXTRACT_LOCAL_METHODS YES)
   set(DOXYGEN_EXTRACT_ANON_NSPACES YES)
-  set(DOXYGEN_IMAGE_PATH ${CMAKE_SOURCE_DIR}/data/images)
+  set(DOXYGEN_IMAGE_PATH ${CMAKE_SOURCE_DIR}/data)
   set(DOXYGEN_HTML_HEADER header.html)
   set(DOXYGEN_HTML_EXTRA_STYLESHEET
       ${doxygen-awesome-css_SOURCE_DIR}/doxygen-awesome.css
@@ -34,5 +38,5 @@ if(Doxygen_FOUND)
   set(DOXYGEN_DOT_IMAGE_FORMAT svg)
 
   doxygen_add_docs(FirmwareDocs ${CMAKE_SOURCE_DIR}/src
-                   ${CMAKE_SOURCE_DIR}/CHANGELOG.md ${CMAKE_SOURCE_DIR}/TODO.md)
+                   ${CMAKE_SOURCE_DIR}/CHANGELOG.md)
 endif()

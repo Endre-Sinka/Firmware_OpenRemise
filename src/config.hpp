@@ -16,9 +16,11 @@
 #include <static_math/static_math.h>
 #include <array>
 #include <atomic>
+#include <climits>
 #include <dcc/dcc.hpp>
 #include <memory>
 #include <string>
+#include <ztl/enum.hpp>
 #include <ztl/implicit_wrapper.hpp>
 #include <ztl/limits.hpp>
 
@@ -133,40 +135,36 @@ inline constexpr auto d21_gpio_num{GPIO_NUM_1};
 
 inline constexpr auto bug_led_gpio_num{GPIO_NUM_48};
 
-enum class Mode : uint8_t {
-  //
-  Suspended,  ///<
-  Shutdown,   ///<
+enum class State : uint16_t {
+  // Flags (8 bits)
+  Suspended = 0u << 0u,          ///<
+  Suspend = !Suspended << 0u,    ///<
+  ShortCircuit = Suspend << 1u,  ///<
+
+  // Outputs
+  DCCOperations = 1u << CHAR_BIT,  ///<
+  DCCService = 2u << CHAR_BIT,     ///<
+  DECUPZpp = 3u << CHAR_BIT,       ///<
+  DECUPZsu = 4u << CHAR_BIT,       ///<
+  MDUZpp = 5u << CHAR_BIT,         ///<
+  MDUZsu = 6u << CHAR_BIT,         ///<
+  ZUSI = 7u << CHAR_BIT,           ///<
 
   // USB protocols
-  DCC_EIN,     ///<
-  DECUP_EIN,   ///<
-  MDUSNDPREP,  ///<
-  SUSIV2,      ///<
+  DCC_EIN = 8u << CHAR_BIT,    ///<
+  DECUP_EIN = 9u << CHAR_BIT,  ///<
+  MDU_EIN = 10u << CHAR_BIT,   ///<
+  SUSIV2 = 11u << CHAR_BIT,    ///<
 
-  //
-  DCCOperations,  ///<
-  DCCService,     ///<
-
-  //
-  ZUSI,  ///<
-
-  //
-  MDUFirmware,  ///<
-  MDUZpp,       ///<
-
-  //
-  OTA  ///<
+  // System
+  OTA = 12u << CHAR_BIT,  ///<
 };
+static_assert(std::to_underlying(State::OTA) < MAGIC_ENUM_RANGE_MAX);
+
+ZTL_MAKE_ENUM_CLASS_FLAGS(State)
 
 /// Restricts access to low-level tasks
-inline std::atomic<Mode> mode{Mode::Suspended};
-
-///
-constexpr uint8_t ack{0x06u};
-
-///
-constexpr uint8_t nak{0x15u};
+inline std::atomic<State> state{State::Suspended};
 
 namespace analog {
 
@@ -183,20 +181,27 @@ inline constexpr auto voltage_channel{ADC_CHANNEL_7};
 inline constexpr auto attenuation{ADC_ATTEN_DB_0};
 inline constexpr std::array channels{current_channel, voltage_channel};
 
+/// Sample frequency [Hz] (sample takes 100µs, conversion frame 20ms)
+inline constexpr auto sample_freq_hz{10000u};
+
+/// Number of samples per frame
 inline constexpr auto conversion_frame_samples{200uz};
+
+/// Time per frame [ms]
+inline constexpr auto conversion_frame_time{(conversion_frame_samples * 1000u) /
+                                            sample_freq_hz};
+static_assert(conversion_frame_time == 20u);
+
 inline constexpr auto conversion_frame_size{conversion_frame_samples *
                                             SOC_ADC_DIGI_DATA_BYTES_PER_CONV};
 inline constexpr auto conversion_frame_samples_per_channel{
   conversion_frame_samples / size(channels)};
 static_assert(size(channels) < SOC_ADC_PATT_LEN_MAX);
 
-/// Sample frequency [Hz] (sample takes 100µs, conversion frame 20ms)
-inline constexpr auto sample_freq_hz{10000u};
-
 ///
 inline struct AdcTask {
   static constexpr auto name{"analog::adc"};
-  static constexpr auto stack_depth{4096uz};
+  static constexpr auto stack_size{4096uz};
   static constexpr UBaseType_t priority{ESP_TASK_PRIO_MAX - 2u};
   static constexpr auto timeout{200u};
   TaskHandle_t handle{};
@@ -205,7 +210,7 @@ inline struct AdcTask {
 ///
 inline struct TempTask {
   static constexpr auto name{"analog::temp"};
-  static constexpr auto stack_depth{2048uz};
+  static constexpr auto stack_size{2048uz};
   static constexpr UBaseType_t priority{tskIDLE_PRIORITY};
   static constexpr auto timeout{200u};
   TaskHandle_t handle{};
@@ -260,7 +265,7 @@ inline std::shared_ptr<Service> service;
 ///
 inline struct Task {
   static constexpr auto name{"dcc"};
-  static constexpr auto stack_depth{4096uz};
+  static constexpr auto stack_size{4096uz};
   static constexpr UBaseType_t priority{2u};
   static constexpr auto timeout{100u};
   TaskHandle_t handle{};
@@ -272,6 +277,9 @@ namespace http {
 
 /// Handle to server instance
 inline httpd_handle_t handle{};
+
+///
+inline constexpr auto stack_size{6144uz};
 
 /// Size of internal RAM reserved for serving files from SPIFFS
 inline constexpr auto file_buffer_size{16384uz};
@@ -290,7 +298,7 @@ namespace mdu {
 ///
 inline struct Task {
   static constexpr auto name{"mdu"};
-  static constexpr auto stack_depth{4096uz};
+  static constexpr auto stack_size{4096uz};
   static constexpr UBaseType_t priority{2u};
   TaskHandle_t handle{};
 } task;
@@ -300,9 +308,15 @@ inline struct Task {
 namespace ota {
 
 ///
+inline constexpr uint8_t ack{0x06u};
+
+///
+inline constexpr uint8_t nak{0x15u};
+
+///
 inline struct Task {
   static constexpr auto name{"ota"};
-  static constexpr auto stack_depth{4096uz};
+  static constexpr auto stack_size{4096uz};
   static constexpr UBaseType_t priority{ESP_TASK_PRIO_MAX - 1u};
   TaskHandle_t handle{};
 } task;
@@ -311,11 +325,11 @@ inline struct Task {
 
 namespace zusi {
 
-///
+/// \todo ESP_TASK_PRIO_MAX
 inline struct Task {
   static constexpr auto name{"zusi"};
-  static constexpr auto stack_depth{4096uz};
-  static constexpr UBaseType_t priority{2u};  // TODO ESP_TASK_PRIO_MAX
+  static constexpr auto stack_size{4096uz};
+  static constexpr UBaseType_t priority{2u};
   TaskHandle_t handle{};
 } task;
 
@@ -342,7 +356,7 @@ inline struct TxMessageBuffer {
 
 namespace track {
 
-enum class CurrentLimit {
+enum class CurrentLimit : uint8_t {
   _500mA = 0b00u,
   _1600mA = 0b01u,
   _3000mA = 0b10u,
@@ -352,12 +366,13 @@ enum class CurrentLimit {
 /// Continuous transmission requires at least a depth of 2
 inline constexpr auto trans_queue_depth{2uz};
 
+inline constexpr auto left_gpio_num{d10_gpio_num};
+inline constexpr auto right_force_low_gpio_num{d11_gpio_num};
+
 inline constexpr auto ack_gpio_num{a1_gpio_num};
 inline constexpr auto nsleep_gpio_num{d5_gpio_num};
 inline constexpr auto isel0_gpio_num{d7_gpio_num};
 inline constexpr auto isel1_gpio_num{d8_gpio_num};
-inline constexpr auto in_gpio_num{d10_gpio_num};
-inline constexpr auto force_low_gpio_num{d11_gpio_num};
 inline constexpr auto nfault_gpio_num{d6_gpio_num};
 inline constexpr auto enable_gpio_num{d12_gpio_num};
 
@@ -382,19 +397,32 @@ inline constexpr auto bidi_en_gpio_num{d13_gpio_num};
 ///
 inline struct Task {
   static constexpr auto name{"out::track::dcc"};
-  static constexpr auto stack_depth{4096uz};
+  static constexpr auto stack_size{4096uz};
   static constexpr UBaseType_t priority{ESP_TASK_PRIO_MAX - 1u};
   TaskHandle_t handle{};
 } task;
 
 }  // namespace dcc
 
+namespace decup {
+
+///
+inline struct Task {
+  static constexpr auto name{"out::track::decup"};
+  static constexpr auto stack_size{4096uz};
+  static constexpr UBaseType_t priority{ESP_TASK_PRIO_MAX - 1u};
+  static constexpr auto timeout{60'000u};
+  TaskHandle_t handle{};
+} task;
+
+}  // namespace decup
+
 namespace mdu {
 
 ///
 inline struct Task {
   static constexpr auto name{"out::track::mdu"};
-  static constexpr auto stack_depth{4096uz};
+  static constexpr auto stack_size{4096uz};
   static constexpr UBaseType_t priority{ESP_TASK_PRIO_MAX - 1u};
   static constexpr auto timeout{10'000u};
   TaskHandle_t handle{};
@@ -413,7 +441,7 @@ inline constexpr auto data_gpio_num{GPIO_NUM_46};
 ///
 inline struct Task {
   static constexpr auto name{"out::zusi"};
-  static constexpr auto stack_depth{4096uz};
+  static constexpr auto stack_size{4096uz};
   static constexpr UBaseType_t priority{ESP_TASK_PRIO_MAX - 1u};
   static constexpr auto timeout{10'000u};
   TaskHandle_t handle{};
@@ -438,7 +466,7 @@ inline constexpr auto buffer_size{512uz};
 ///
 inline struct RxTask {
   static constexpr auto name{"usb::rx"};
-  static constexpr auto stack_depth{3072uz};
+  static constexpr auto stack_size{3072uz};
   static constexpr UBaseType_t priority{5u};
   static constexpr auto timeout{100u};
   TaskHandle_t handle{};
@@ -447,7 +475,7 @@ inline struct RxTask {
 ///
 inline struct TxTask {
   static constexpr auto name{"usb::tx"};
-  static constexpr auto stack_depth{3072uz};
+  static constexpr auto stack_size{3072uz};
   static constexpr UBaseType_t priority{1u};
   static constexpr auto timeout{20u};
   TaskHandle_t handle{};
@@ -468,24 +496,28 @@ inline struct TxStreamBuffer {
 namespace dcc_ein {
 
 ///
-inline struct RxTask {
-  static constexpr auto name{"usb::dcc_ein::rx"};
-  static constexpr auto stack_depth{3072uz};
+inline struct Task {
+  static constexpr auto name{"usb::dcc_ein"};
+  static constexpr auto stack_size{3072uz};
   static constexpr UBaseType_t priority{::usb::rx_task.priority};
   static constexpr auto timeout{100u};
   TaskHandle_t handle{};
-} rx_task;
-
-///
-inline struct TxTask {
-  static constexpr auto name{"usb::dcc_ein::tx"};
-  static constexpr auto stack_depth{2048uz};
-  static constexpr UBaseType_t priority{::usb::tx_task.priority - 1u};
-  static constexpr auto timeout{100u};
-  TaskHandle_t handle{};
-} tx_task;
+} task;
 
 }  // namespace dcc_ein
+
+namespace decup_ein {
+
+///
+inline struct Task {
+  static constexpr auto name{"usb::decup_ein"};
+  static constexpr auto stack_size{3072uz};
+  static constexpr UBaseType_t priority{::usb::rx_task.priority};
+  static constexpr auto timeout{::out::track::decup::task.timeout};
+  TaskHandle_t handle{};
+} task;
+
+}  // namespace decup_ein
 
 namespace susiv2 {
 
@@ -496,22 +528,13 @@ namespace susiv2 {
 inline constexpr auto buffer_size{268uz};
 
 ///
-inline struct RxTask {
-  static constexpr auto name{"usb::susiv2::rx"};
-  static constexpr auto stack_depth{3072uz};
+inline struct Task {
+  static constexpr auto name{"usb::susiv2"};
+  static constexpr auto stack_size{3072uz};
   static constexpr UBaseType_t priority{::usb::rx_task.priority};
   static constexpr auto timeout{::out::zusi::task.timeout};
   TaskHandle_t handle{};
-} rx_task;
-
-///
-inline struct TxTask {
-  static constexpr auto name{"usb::susiv2::tx"};
-  static constexpr auto stack_depth{2048uz};
-  static constexpr UBaseType_t priority{::usb::tx_task.priority - 1u};
-  static constexpr auto timeout{100u};
-  TaskHandle_t handle{};
-} tx_task;
+} task;
 
 }  // namespace susiv2
 
@@ -539,7 +562,7 @@ namespace z21 {
 ///
 inline struct RxTask {
   static constexpr auto name{"z21"};
-  static constexpr auto stack_depth{6144uz};
+  static constexpr auto stack_size{6144uz};
   static constexpr UBaseType_t priority{5u};
   static constexpr auto timeout{500u};
   TaskHandle_t handle{};

@@ -4,17 +4,82 @@
 /// \author Vincent Hamp
 /// \date   27/03/2023
 
+#include "task_function.hpp"
+#include <driver/gpio.h>
+#include <driver/spi_master.h>
+#include <hal/gpio_ll.h>
+#include <soc/spi_periph.h>
+#include <ulf/susiv2.hpp>
+#include <zusi/zusi.hpp>
 #include "init.hpp"
 #include "log.h"
 #include "resume.hpp"
 #include "suspend.hpp"
-#include "zpp_load.hpp"
 
 namespace out::zusi {
 
 using namespace ::zusi;
+using ::ulf::susiv2::ack, ::ulf::susiv2::nak;
 
-/// TODO
+class ZppLoad final : public ::zusi::tx::Base {
+  ///
+  void transmitBytes(std::span<uint8_t const> chunk,
+                     ::zusi::Mbps mbps) const final {
+    spi_transaction_t trans{
+      .length = size(chunk) * CHAR_BIT,
+      .tx_buffer = data(chunk),
+    };
+    ESP_ERROR_CHECK(
+      spi_device_polling_transmit(spis[std::to_underlying(mbps)], &trans));
+  }
+
+  ///
+  void spiMaster() const final {
+    gpio_set_direction(data_gpio_num, GPIO_MODE_OUTPUT);
+    esp_rom_gpio_connect_out_signal(
+      data_gpio_num, spi_periph_signal[SPI2_HOST].spid_out, false, false);
+    esp_rom_gpio_connect_out_signal(
+      clock_gpio_num, spi_periph_signal[SPI2_HOST].spiclk_out, false, false);
+  }
+
+  ///
+  void gpioInput() const final {
+    gpio_set_direction(data_gpio_num, GPIO_MODE_INPUT);
+    esp_rom_gpio_connect_out_signal(
+      clock_gpio_num, SIG_GPIO_OUT_IDX, false, false);
+  }
+
+  ///
+  void gpioOutput() const final {
+    gpio_set_direction(data_gpio_num, GPIO_MODE_OUTPUT);
+    esp_rom_gpio_connect_out_signal(
+      data_gpio_num, SIG_GPIO_OUT_IDX, false, false);
+    esp_rom_gpio_connect_out_signal(
+      clock_gpio_num, SIG_GPIO_OUT_IDX, false, false);
+  }
+
+  ///
+  void writeClock(bool state) const final {
+    gpio_set_level(clock_gpio_num, state);
+  }
+
+  ///
+  void writeData(bool state) const final {
+    gpio_set_level(data_gpio_num, state);
+  }
+
+  ///
+  bool readData() const final { return gpio_get_level(data_gpio_num); }
+
+  ///
+  void delayUs(uint32_t us) const final {
+    gptimer_set_raw_count(gptimer, 0ull);
+    uint64_t value{};
+    while (value < us) ESP_ERROR_CHECK(gptimer_get_raw_count(gptimer, &value));
+  }
+};
+
+/// \todo document
 std::optional<std::span<uint8_t>> receive_command(std::span<uint8_t> stack) {
   //
   if (auto const bytes_received{
@@ -27,7 +92,7 @@ std::optional<std::span<uint8_t>> receive_command(std::span<uint8_t> stack) {
   else return std::nullopt;
 }
 
-/// TODO
+/// \todo document
 void transmit(std::span<uint8_t const> stack) {
   xMessageBufferSend(out::rx_message_buffer.handle,
                      data(stack),
@@ -35,7 +100,7 @@ void transmit(std::span<uint8_t const> stack) {
                      pdMS_TO_TICKS(task.timeout));
 }
 
-/// TODO
+/// \todo document
 void loop() {
   ::zusi::Buffer<tx_message_buffer.size> stack;
 
@@ -95,21 +160,23 @@ void loop() {
         }
         break;
 
-      case Command::Encrypt:
-        LOGW("'Encrypt' command not implemented");  // TODO
-        break;
+      /// \todo implement encrypt
+      case Command::Encrypt: LOGW("'Encrypt' command not implemented"); break;
     }
   }
 }
 
-/// TODO
+/// \todo document
 void task_function(void*) {
-  for (;;) {
-    LOGI_TASK_SUSPEND(task.handle);
-    ESP_ERROR_CHECK(resume());
-    loop();
-    ESP_ERROR_CHECK(suspend());
-  }
+  for (;;) switch (state.load()) {
+      case State::SUSIV2: [[fallthrough]];
+      case State::ZUSI:
+        ESP_ERROR_CHECK(resume());
+        loop();
+        ESP_ERROR_CHECK(suspend());
+        break;
+      default: LOGI_TASK_SUSPEND(task.handle); break;
+    }
 }
 
 }  // namespace out::zusi

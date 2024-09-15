@@ -60,7 +60,7 @@ esp_err_t init(BaseType_t xCoreID) {
 
   if (!xTaskCreatePinnedToCore(task_function,
                                task.name,
-                               task.stack_depth,
+                               task.stack_size,
                                NULL,
                                task.priority,
                                &task.handle,

@@ -11,16 +11,22 @@
 
 namespace out::track::dcc {
 
-/// TODO
-esp_err_t deinit_gpio() { return gpio_set_level(enable_gpio_num, 0u); }
+/// \todo document
+/// For some reason the delay seems to be necessary when switching between op-
+/// and serv-mode?
+esp_err_t deinit_gpio() {
+  ESP_ERROR_CHECK(gpio_set_level(enable_gpio_num, 0u));
+  vTaskDelay(pdMS_TO_TICKS(20u));
+  return gpio_set_level(right_force_low_gpio_num, 1u);
+}
 
-/// TODO
+/// \todo document
 esp_err_t deinit_bidi() {
   ESP_ERROR_CHECK(gpio_set_level(bidi_en_gpio_num, 0u));
   return uart_driver_delete(UART_NUM_1);
 }
 
-/// TODO
+/// \todo document
 esp_err_t deinit_alarm() {
   gptimer_stop(gptimer);
   ESP_ERROR_CHECK(gptimer_set_raw_count(gptimer, 0ull));
@@ -30,20 +36,20 @@ esp_err_t deinit_alarm() {
   return gptimer_set_alarm_action(gptimer, NULL);
 }
 
-/// TODO
+/// \todo document
 esp_err_t deinit_rmt() {
   rmt_tx_event_callbacks_t cbs{};
   return rmt_tx_register_event_callbacks(channel, &cbs, NULL);
 }
 
-/// TODO
+/// \todo document
 esp_err_t deinit_encoder() {
   ESP_ERROR_CHECK(rmt_del_encoder(encoder));
   encoder = NULL;
   return ESP_OK;
 }
 
-/// TODO
+/// \todo document
 esp_err_t suspend() {
   ESP_ERROR_CHECK(deinit_gpio());
   ESP_ERROR_CHECK(deinit_bidi());

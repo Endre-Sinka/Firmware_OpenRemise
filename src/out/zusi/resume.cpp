@@ -14,7 +14,7 @@ namespace out::zusi {
 
 namespace {
 
-/// TODO
+/// \todo document
 esp_err_t init_alarm() {
   ESP_ERROR_CHECK(gptimer_enable(gptimer));
   return gptimer_start(gptimer);

@@ -9,63 +9,26 @@
 #include <array>
 #include <cstring>
 #include <limits>
-#include "current_limit.hpp"
 #include "dcc/task_function.hpp"
+#include "decup/task_function.hpp"
+#include "log.h"
 #include "mdu/task_function.hpp"
+#include "utility.hpp"
 
 namespace out::track {
 
 namespace {
 
-/// TODO
-esp_err_t init_gpio() {
-  // Input
-  {
-    static constexpr gpio_config_t io_conf{
-      .pin_bit_mask = 1ull << nfault_gpio_num,
-      .mode = GPIO_MODE_INPUT,
-      .pull_up_en = GPIO_PULLUP_DISABLE,
-      .pull_down_en = GPIO_PULLDOWN_DISABLE,
-      .intr_type = GPIO_INTR_DISABLE};
-    ESP_ERROR_CHECK(gpio_config(&io_conf));
-  }
-
-  // Input
-  {
-    static constexpr gpio_config_t io_conf{.pin_bit_mask = 1ull << ack_gpio_num,
-                                           .mode = GPIO_MODE_INPUT,
-                                           .pull_up_en = GPIO_PULLUP_DISABLE,
-                                           .pull_down_en =
-                                             GPIO_PULLDOWN_DISABLE,
-                                           .intr_type = GPIO_INTR_NEGEDGE};
-    ESP_ERROR_CHECK(gpio_config(&io_conf));
-    ESP_ERROR_CHECK(gpio_install_isr_service(ESP_INTR_FLAG_LEVEL2));
-  }
-
-  // Output
-  {
-    static constexpr gpio_config_t io_conf{
-      .pin_bit_mask = 1ull << isel0_gpio_num | 1ull << isel1_gpio_num |
-                      1ull << nsleep_gpio_num | 1ull << force_low_gpio_num |
-                      1ull << enable_gpio_num | 1ull << dcc::bidi_en_gpio_num,
-      .mode = GPIO_MODE_OUTPUT,
-      .pull_up_en = GPIO_PULLUP_DISABLE,
-      .pull_down_en = GPIO_PULLDOWN_DISABLE,
-      .intr_type = GPIO_INTR_DISABLE};
-    ESP_ERROR_CHECK(gpio_config(&io_conf));
-    ESP_ERROR_CHECK(gpio_set_level(enable_gpio_num, 0u));
-    ESP_ERROR_CHECK(gpio_set_level(dcc::bidi_en_gpio_num, 0u));
-
-    // TODO remove? I'd like NSLEEP to always be 3.3V... but currently afraid
-    // that there might be a fault I can't reset then
-    return gpio_set_level(out::track::nsleep_gpio_num, 1u);
-  }
+/// \todo document this should never happen
+void IRAM_ATTR nfault_isr_handler(void*) {
+  DRAM_LOGE("nFAULT");
+  bug_led(true);
 }
 
-/// TODO
+/// \todo document RMT pin no longer tristate after that
 esp_err_t init_channel() {
   static constexpr rmt_tx_channel_config_t chan_config{
-    .gpio_num = in_gpio_num,
+    .gpio_num = left_gpio_num,
     .clk_src = RMT_CLK_SRC_DEFAULT,
     .resolution_hz = 1'000'000u,
     .mem_block_symbols =
@@ -83,30 +46,77 @@ esp_err_t init_channel() {
   return rmt_enable(channel);
 }
 
+/// \todo document
+esp_err_t init_gpio() {
+  // Outputs
+  {
+    static constexpr gpio_config_t io_conf{
+      .pin_bit_mask = 1ull << isel0_gpio_num | 1ull << isel1_gpio_num |
+                      1ull << nsleep_gpio_num |
+                      1ull << right_force_low_gpio_num |
+                      1ull << enable_gpio_num | 1ull << dcc::bidi_en_gpio_num,
+      .mode = GPIO_MODE_OUTPUT,
+      .pull_up_en = GPIO_PULLUP_DISABLE,
+      .pull_down_en = GPIO_PULLDOWN_DISABLE,
+      .intr_type = GPIO_INTR_DISABLE};
+    ESP_ERROR_CHECK(gpio_config(&io_conf));
+    ESP_ERROR_CHECK(gpio_set_level(right_force_low_gpio_num, 1u));
+    ESP_ERROR_CHECK(gpio_set_level(enable_gpio_num, 0u));
+    ESP_ERROR_CHECK(gpio_set_level(dcc::bidi_en_gpio_num, 0u));
+    ESP_ERROR_CHECK(gpio_set_level(nsleep_gpio_num, 1u));
+  }
+
+  // Wait for device to wake up
+  // (otherwise nFAULT would immediately trigger an interrupt)
+  vTaskDelay(pdMS_TO_TICKS(100u));
+
+  // Install a global ISR handler service to allow adding callbacks for
+  // individual GPIO pins via gpio_isr_handler_add
+  ESP_ERROR_CHECK(gpio_install_isr_service(ESP_INTR_FLAG_LEVEL2));
+
+  // Inputs
+  {
+    static constexpr gpio_config_t io_conf{
+      .pin_bit_mask = 1ull << nfault_gpio_num | 1ull << ack_gpio_num,
+      .mode = GPIO_MODE_INPUT,
+      .pull_up_en = GPIO_PULLUP_DISABLE,
+      .pull_down_en = GPIO_PULLDOWN_DISABLE,
+      .intr_type = GPIO_INTR_NEGEDGE};
+    ESP_ERROR_CHECK(gpio_config(&io_conf));
+  }
+
+  // Add an ISR handler for nFAULT
+  return gpio_isr_handler_add(nfault_gpio_num, nfault_isr_handler, NULL);
+}
+
 }  // namespace
 
-/// TODO
+/// \todo document
 esp_err_t init(BaseType_t xCoreID) {
   rx_queue.handle = xQueueCreate(rx_queue.size, sizeof(RxQueue::value_type));
 
-  ESP_ERROR_CHECK(init_gpio());
   ESP_ERROR_CHECK(init_channel());
-
-  //
-  ESP_ERROR_CHECK(set_current_limit(CurrentLimit::_500mA));
-  if (get_current_limit() != CurrentLimit::_500mA) assert(false);
+  ESP_ERROR_CHECK(init_gpio());
 
   if (!xTaskCreatePinnedToCore(dcc::task_function,
                                dcc::task.name,
-                               dcc::task.stack_depth,
+                               dcc::task.stack_size,
                                NULL,
                                dcc::task.priority,
                                &dcc::task.handle,
                                xCoreID))
     assert(false);
+  if (!xTaskCreatePinnedToCore(decup::task_function,
+                               decup::task.name,
+                               decup::task.stack_size,
+                               NULL,
+                               decup::task.priority,
+                               &decup::task.handle,
+                               xCoreID))
+    assert(false);
   if (!xTaskCreatePinnedToCore(mdu::task_function,
                                mdu::task.name,
-                               mdu::task.stack_depth,
+                               mdu::task.stack_size,
                                NULL,
                                mdu::task.priority,
                                &mdu::task.handle,

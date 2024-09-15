@@ -10,7 +10,7 @@ namespace usb {
 
 /// \page page_usb USB
 /// \tableofcontents
-/// TODO DCC page
+/// \todo document USB page
 ///
 
 }  // namespace usb

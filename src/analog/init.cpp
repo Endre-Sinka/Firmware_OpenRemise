@@ -14,7 +14,7 @@
 
 namespace analog {
 
-/// TODO
+/// \todo document
 esp_err_t init(BaseType_t xCoreID) {
   voltages_queue.handle =
     xQueueCreate(voltages_queue.size, sizeof(VoltagesQueue::value_type));
@@ -71,7 +71,7 @@ esp_err_t init(BaseType_t xCoreID) {
   //
   if (!xTaskCreatePinnedToCore(adc_task_function,
                                adc_task.name,
-                               adc_task.stack_depth,
+                               adc_task.stack_size,
                                NULL,
                                adc_task.priority,
                                &adc_task.handle,
@@ -79,7 +79,7 @@ esp_err_t init(BaseType_t xCoreID) {
     assert(false);
   if (!xTaskCreatePinnedToCore(temp_task_function,
                                temp_task.name,
-                               temp_task.stack_depth,
+                               temp_task.stack_size,
                                NULL,
                                temp_task.priority,
                                &temp_task.handle,

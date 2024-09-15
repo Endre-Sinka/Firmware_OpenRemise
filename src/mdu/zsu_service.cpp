@@ -1,20 +1,24 @@
-#include "firmware_service.hpp"
+#include "zsu_service.hpp"
+#include <ulf/mdu_ein.hpp>
 #include "log.h"
 #include "utility.hpp"
 
 namespace mdu {
 
-esp_err_t FirmwareService::firmwareSocket(http::Message& msg) {
+using ::ulf::mdu_ein::ack, ::ulf::mdu_ein::nak;
+
+/// \bug should this broadcast Z21 programming mode?
+esp_err_t ZsuService::zsuSocket(http::Message& msg) {
   //
-  if (auto expected{Mode::Suspended};
+  if (auto expected{State::Suspended};
       msg.type != HTTPD_WS_TYPE_CLOSE &&
-      mode.compare_exchange_strong(expected, Mode::MDUFirmware)) {
+      state.compare_exchange_strong(expected, State::MDUZsu)) {
     LOGI_TASK_RESUME(task.handle);
     LOGI_TASK_RESUME(out::track::mdu::task.handle);
   }
 
   //
-  if (mode.load() == Mode::MDUFirmware) {
+  if (state.load() == State::MDUZsu) {
     _queue.push(std::move(msg));
     return ESP_OK;
   }
@@ -23,11 +27,11 @@ esp_err_t FirmwareService::firmwareSocket(http::Message& msg) {
     return ESP_FAIL;
 }
 
-/// TODO
-void FirmwareService::loop() {
+/// \todo document
+void ZsuService::loop() {
   bug_led(true);
 
-  auto const timeout{get_http_receive_timeout()};
+  auto const timeout{http_receive_timeout2ms()};
 
   for (;;) {
     TickType_t then{xTaskGetTickCount() + pdMS_TO_TICKS(timeout)};
@@ -59,9 +63,9 @@ void FirmwareService::loop() {
   }
 }
 
-/// TODO
+/// \todo document
 std::array<uint8_t, 2uz>
-FirmwareService::transmit(std::vector<uint8_t> const& payload) const {
+ZsuService::transmit(std::vector<uint8_t> const& payload) const {
   //
   xMessageBufferSend(out::tx_message_buffer.front_handle,
                      data(payload),
@@ -78,8 +82,8 @@ FirmwareService::transmit(std::vector<uint8_t> const& payload) const {
   return retval;
 }
 
-/// TODO
-void FirmwareService::close() {
+/// \todo document
+void ZsuService::close() {
   _queue = {};
   bug_led(false);
 }

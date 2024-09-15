@@ -10,7 +10,7 @@ namespace zusi {
 
 /// \page page_zusi ZUSI
 /// \tableofcontents
-/// TODO ZUSI page
+/// \todo document ZUSI page
 ///
 
 }  // namespace zusi

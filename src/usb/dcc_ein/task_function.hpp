@@ -1,6 +1,6 @@
-/// DCC_EIN protocol receive task function
+/// DCC_EIN protocol task function
 ///
-/// \file   usb/dcc_ein/rx_task_function.hpp
+/// \file   usb/dcc_ein/task_function.hpp
 /// \author Vincent Hamp
 /// \date   10/02/2023
 
@@ -12,6 +12,6 @@
 namespace usb::dcc_ein {
 
 std::optional<dcc::Packet> receive_dcc_packet();
-void rx_task_function(void*);
+void task_function(void*);
 
 }  // namespace usb::dcc_ein

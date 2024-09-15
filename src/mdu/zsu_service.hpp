@@ -7,9 +7,9 @@
 
 namespace mdu {
 
-class FirmwareService {
+class ZsuService {
 public:
-  esp_err_t firmwareSocket(http::Message& msg);
+  esp_err_t zsuSocket(http::Message& msg);
 
 protected:
   void loop();

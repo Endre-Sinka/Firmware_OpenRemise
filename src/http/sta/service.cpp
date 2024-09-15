@@ -25,6 +25,7 @@ Service::Service() {
   //
   mem::nvs::Settings nvs;
   httpd_config_t config = HTTPD_DEFAULT_CONFIG();
+  config.stack_size = stack_size;
   config.core_id = 0;
   config.max_uri_handlers = 16u;
   config.lru_purge_enable = true;
@@ -71,17 +72,17 @@ Service::Service() {
   httpd_register_uri_handler(handle, &uri);
 
   //
-  uri = {.uri = "/mdu/firmware/*",
+  uri = {.uri = "/mdu/zpp/*",
          .method = HTTP_GET,
-         .handler = make_tramp(this, &Service::mduFirmwareWsHandler),
+         .handler = make_tramp(this, &Service::mduZppWsHandler),
          .is_websocket = true,
          .handle_ws_control_frames = true};
   httpd_register_uri_handler(handle, &uri);
 
   //
-  uri = {.uri = "/mdu/zpp/*",
+  uri = {.uri = "/mdu/zsu/*",
          .method = HTTP_GET,
-         .handler = make_tramp(this, &Service::mduZppWsHandler),
+         .handler = make_tramp(this, &Service::mduZsuWsHandler),
          .is_websocket = true,
          .handle_ws_control_frames = true};
   httpd_register_uri_handler(handle, &uri);
@@ -123,7 +124,7 @@ Service::~Service() {
   handle = NULL;
 }
 
-/// TODO
+/// \todo document
 esp_err_t Service::deleteHandler(httpd_req_t* req) {
   LOGD("DELETE request %s", req->uri);
 
@@ -141,7 +142,7 @@ esp_err_t Service::deleteHandler(httpd_req_t* req) {
   }
 }
 
-/// TODO
+/// \todo document
 esp_err_t Service::getHandler(httpd_req_t* req) {
   LOGD("GET request %s", req->uri);
 
@@ -160,7 +161,7 @@ esp_err_t Service::getHandler(httpd_req_t* req) {
   }
 }
 
-/// TODO
+/// \todo document
 esp_err_t Service::putPostHandler(httpd_req_t* req) {
   LOGD("%s request %s", req->method == HTTP_PUT ? "PUT" : "POST", req->uri);
 
@@ -202,13 +203,13 @@ esp_err_t Service::putPostHandler(httpd_req_t* req) {
     }                                                                          \
   }
 
-GENERIC_WS_HANDLER(mduFirmwareWsHandler, "/mdu/firmware/")
 GENERIC_WS_HANDLER(mduZppWsHandler, "/mdu/zpp/")
+GENERIC_WS_HANDLER(mduZsuWsHandler, "/mdu/zsu/")
 GENERIC_WS_HANDLER(otaWsHandler, "/ota/")
 GENERIC_WS_HANDLER(z21WsHandler, "/z21/")
 GENERIC_WS_HANDLER(zusiWsHandler, "/zusi/")
 
-/// TODO
+/// \todo document
 esp_err_t Service::wildcardGetHandler(httpd_req_t* req) {
   LOGD("GET request %s", req->uri);
 

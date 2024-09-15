@@ -48,7 +48,7 @@ private:
   void cvPomWrite(uint16_t addr, uint16_t cv_addr, uint8_t byte) final;
 
   //
-  bool trackPower(bool on, Mode mode);
+  bool trackPower(bool on, State dcc_state);
 
   ///
   std::shared_ptr<z21::server::intf::Dcc> _dcc_service;

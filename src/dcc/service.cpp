@@ -6,13 +6,14 @@
 #include <ranges>
 #include "log.h"
 #include "mem/nvs/locos.hpp"
+#include "mem/nvs/settings.hpp"
 #include "utility.hpp"
 
 namespace dcc {
 
 using namespace std::literals;
 
-/// TODO
+/// \todo document
 Service::Service(BaseType_t xCoreID) {
   mem::nvs::Locos nvs;
   for (auto const& entry_info : nvs) {
@@ -26,7 +27,7 @@ Service::Service(BaseType_t xCoreID) {
 
   if (!xTaskCreatePinnedToCore(make_tramp(this, &Service::taskFunction),
                                task.name,
-                               task.stack_depth,
+                               task.stack_size,
                                NULL,
                                task.priority,
                                &task.handle,
@@ -34,19 +35,20 @@ Service::Service(BaseType_t xCoreID) {
     assert(false);
 }
 
-/// TODO
+/// \todo document
 Service::~Service() {
   if (task.handle) vTaskDelete(task.handle);
 }
 
-///
+/// \todo document
 void Service::z21(std::shared_ptr<z21::server::intf::System> z21_system_service,
                   std::shared_ptr<z21::server::intf::Dcc> z21_dcc_service) {
   _z21_system_service = z21_system_service;
   _z21_dcc_service = z21_dcc_service;
 }
 
-/// TODO
+/// \todo document
+/// \todo filters?
 http::Response Service::locosGetRequest(http::Request const& req) {
   // Singleton
   if (auto const addr{uri2address(req.uri).value_or(0u)}) {
@@ -60,7 +62,7 @@ http::Response Service::locosGetRequest(http::Request const& req) {
     serializeJson(doc, json);
     return json;
   }
-  // Collection (TODO filters?)
+  // Collection
   else {
     JsonDocument doc;
     auto array{doc.to<JsonArray>()};  // Explicitly convert to array
@@ -76,7 +78,8 @@ http::Response Service::locosGetRequest(http::Request const& req) {
   }
 }
 
-/// TODO
+/// \todo document
+/// \todo filters?
 http::Response Service::locosDeleteRequest(http::Request const& req) {
   std::lock_guard lock{_internal_mutex};
 
@@ -87,7 +90,7 @@ http::Response Service::locosDeleteRequest(http::Request const& req) {
     mem::nvs::Locos nvs;
     nvs.erase(addr);
   }
-  // Collection (TODO filters?)
+  // Collection
   else if (req.uri == "/dcc/locos/"sv) {
     // Erase all
     _locos.clear();
@@ -98,7 +101,7 @@ http::Response Service::locosDeleteRequest(http::Request const& req) {
   return {};
 }
 
-/// TODO
+/// \todo document
 http::Response Service::locosPutRequest(http::Request const& req) {
   // Validate body
   if (!validate_json(req.body))
@@ -120,8 +123,7 @@ http::Response Service::locosPutRequest(http::Request const& req) {
   if (JsonVariantConst doc_addr{doc["address"]};
       doc_addr.as<Address::value_type>() != addr) {
     LOGW("json contains address which is NOT equal to URI");
-    // TODO, that sucks because that means we need to change the address... and
-    // that has a huge fuck-up potential
+    /// \todo CHANGE ADDRESS OF EXISTING LOCO HERE!!!
   }
 
   std::lock_guard lock{_internal_mutex};
@@ -136,28 +138,26 @@ http::Response Service::locosPutRequest(http::Request const& req) {
   return {};
 }
 
-/// TODO
+/// \todo document
 void Service::taskFunction(void*) {
-  for (;;) {
-    LOGI_TASK_SUSPEND(task.handle);
-    resume();
-    loop();
-    suspend();
-  }
+  for (;;) switch (state.load()) {
+      case State::DCCOperations:
+        resume();
+        operationsLoop();
+        suspend();
+        break;
+      case State::DCCService:
+        resume();
+        serviceLoop();
+        suspend();
+        break;
+      default: LOGI_TASK_SUSPEND(task.handle); break;
+    }
 }
 
-/// TODO
-void Service::loop() {
-  switch (mode.load()) {
-    case Mode::DCCOperations: operationsLoop(); break;
-    case Mode::DCCService: serviceLoop(); break;
-    default: break;
-  }
-}
-
-///
+/// \todo document
 void Service::operationsLoop() {
-  while (mode.load() == Mode::DCCOperations) {
+  while (state.load() == State::DCCOperations) {
     operationsDcc();
     operationsBiDi();
     vTaskDelay(pdMS_TO_TICKS(task.timeout));
@@ -178,7 +178,7 @@ void Service::operationsDcc() {
       out::tx_message_buffer.size * 0.5)
     return;
 
-  // TODO necessary???
+  /// \todo necessary?
   std::lock_guard lock{_internal_mutex};
 
   // So, we iterate over each loco and check it's priority
@@ -186,36 +186,66 @@ void Service::operationsDcc() {
   // if (!(_priority_count % priority))
   // then we push a bunch of commands... and increment its priority
   // The maximum priority must be some remainder of 256 though (e.g. 32?),
-  // otherwise it's pointless. If all locos are up to maximum priority there
-  // must be some kind of "reset"? Can we get in trouble if we address the same
-  // loco X times in a row? Are there are circumstances where this is not ok?
+  // otherwise it's pointless.
+  // Can we get in trouble if we address the same loco X times in a row? Are
+  // there are circumstances where this is not ok?
+
+  // If all locos are up to maximum priority there must be some kind of "reset"?
+  if (_priority_count == Loco::max_priority) {
+    _priority_count = Loco::min_priority;
+    for (auto& [addr, loco] : _locos) loco.priority = Loco::min_priority;
+  }
 
   //
   for (;;) {
-    // bool all_locos_max_prio{true};
+    //
+    if (empty(_locos)) {
+      sendToBack(make_idle_packet());
 
-    for (auto& [addr, loco] : _locos) {
-      //
-      if (_priority_count % (loco.priority + 1u)) continue;
-
-      //
-      sendToBack(make_advanced_operations_speed_packet(addr, loco.rvvvvvvv));
-      sendToBack(make_function_group_f4_f0_packet(addr, loco.f31_0 & 0x1Fu));
-      sendToBack(
-        make_function_group_f8_f5_packet(addr, loco.f31_0 >> 5u & 0xFu));
-      sendToBack(
-        make_function_group_f12_f9_packet(addr, loco.f31_0 >> 9u & 0xFu));
-      // loco.priority = std::clamp(loco.priority + 1u, 0u, loco.max_priority);
       if (xMessageBufferSpacesAvailable(out::tx_message_buffer.back_handle) <
           out::tx_message_buffer.size * 0.25)
         return;
     }
+    //
+    else {
+      for (auto& [addr, loco] : _locos) {
+        //
+        if (_priority_count % loco.priority) continue;
 
-    ++_priority_count;
+        // Speed and direction
+        switch (loco.speed_steps) {
+          case z21::LocoInfo::DCC14: [[fallthrough]];  //  break;
+          case z21::LocoInfo::DCC28: [[fallthrough]];  // break;
+          case z21::LocoInfo::DCC128:
+            sendToBack(
+              make_advanced_operations_speed_packet(addr, loco.rvvvvvvv));
+            break;
+        }
+
+        // Lower functions
+        sendToBack(make_function_group_f4_f0_packet(addr, loco.f31_0 & 0x1Fu));
+        sendToBack(
+          make_function_group_f8_f5_packet(addr, loco.f31_0 >> 5u & 0xFu));
+        sendToBack(
+          make_function_group_f12_f9_packet(addr, loco.f31_0 >> 9u & 0xFu));
+
+        // Higher functions?
+
+        loco.priority = std::clamp<decltype(loco.priority)>(
+          loco.priority + 1u, Loco::min_priority, Loco::max_priority);
+
+        if (xMessageBufferSpacesAvailable(out::tx_message_buffer.back_handle) <
+            out::tx_message_buffer.size * 0.25)
+          return;
+      }
+
+      _priority_count = std::clamp<decltype(_priority_count)>(
+        _priority_count + 1u, Loco::min_priority, Loco::max_priority);
+    }
   }
 }
 
-///
+/// \todo document
 void Service::operationsBiDi() {
   out::track::RxQueue::value_type item;
   while (xQueueReceive(out::track::rx_queue.handle, &item, 0u)) {
@@ -231,7 +261,7 @@ void Service::operationsBiDi() {
     // No data
     if (std::ranges::all_of(ch2, [](uint8_t b) { return !b; })) continue;
     // Invalid data or ACK
-    // (TODO remove that later, not caring for acks is just temporarily!)
+    /// \todo remove that later, not caring for acks is just temporarily!
     if (std::ranges::any_of(ch2, [](uint8_t b) {
           return (b && std::popcount(b) != CHAR_BIT / 2) ||
                  (b == dcc::bidi::acks[0uz] || b == dcc::bidi::acks[1uz]);
@@ -259,10 +289,6 @@ void Service::operationsBiDi() {
                 req.addr == addr && req.cv_addr == cv_addr) {
               cvAck(cv_addr, static_cast<uint8_t>(data >> 24u));
               _cv_pom_request_deque.pop_front();
-              LOGI("cvAck %d %d %d",
-                   static_cast<uint16_t>(addr),
-                   cv_addr,
-                   static_cast<uint8_t>(data >> 24u));
             }
           }
         }
@@ -313,26 +339,25 @@ void Service::operationsBiDi() {
       xTaskGetTickCount() > _cv_pom_request_deque.front().then) {
     _cv_pom_request_deque.pop_front();
     cvNack();
-    LOGI("cvNack");
   }
 }
 
-///
+/// \todo document
 void Service::serviceLoop() {
   if (empty(_cv_request_deque)) return;
 
-  // TODO oh god please make this safer...
-  // if coming from op mode
-  if (auto expected{Mode::DCCOperations};
-      mode.compare_exchange_strong(expected, Mode::Shutdown)) {
+  /// \todo oh god please make this safer...
+  /// it changes from opmode to serv...
+  if (auto expected{State::DCCOperations};
+      state.compare_exchange_strong(expected, State::Suspend)) {
 
     // wait for task to get suspended
     while (eTaskGetState(out::track::dcc::task.handle) != eSuspended)
       vTaskDelay(pdMS_TO_TICKS(task.timeout));
 
     // switch to serv mode
-    expected = Mode::Suspended;
-    if (!mode.compare_exchange_strong(expected, Mode::DCCService))
+    expected = State::Suspended;
+    if (!state.compare_exchange_strong(expected, State::DCCService))
       assert(false);
 
     // then resume
@@ -354,54 +379,84 @@ void Service::serviceLoop() {
   else cvNack();
 }
 
-///
+/// \todo document
 std::optional<uint8_t> Service::serviceRead(uint16_t cv_addr) {
-  // Bit verify
-  for (uint8_t i{0u}; i < CHAR_BIT; ++i)
-    sendToFront(make_cv_access_long_verify_service_packet(cv_addr, true, i),
-                7uz);
-  auto const byte{serviceReceiveByte()};
+  std::optional<uint8_t> byte{};
 
-  // Byte verify
-  if (byte) {
-    sendToFront(make_cv_access_long_verify_service_packet(cv_addr, *byte), 7uz);
+  mem::nvs::Settings nvs;
+  auto const programming_type{nvs.getDccProgrammingType()};
+  auto const program_packet_count{nvs.getDccProgramPacketCount()};
+  auto const bit_verify_to_1{nvs.getDccBitVerifyTo1()};
+  nvs.~Settings();
+
+  // Nothing
+  if (programming_type == 0x00u) return std::nullopt;
+
+  // Byte verify only
+  if (programming_type == 0x02u) {
+    for (auto i{0u}; i < std::numeric_limits<uint8_t>::max(); ++i) {
+      sendToFront(make_cv_access_long_verify_service_packet(cv_addr, i),
+                  program_packet_count);
+      if (serviceReceiveBit() == true) return i;
+    }
+  }
+
+  // Bit verify
+  if (programming_type & 0x01u) {
+    for (uint8_t i{0u}; i < CHAR_BIT; ++i)
+      sendToFront(
+        make_cv_access_long_verify_service_packet(cv_addr, bit_verify_to_1, i),
+        program_packet_count);
+    byte = serviceReceiveByte(bit_verify_to_1);
+
+    // Only
+    if (programming_type == 0x01u) return byte;
+  }
+
+  // Bit and byte verify
+  if (programming_type == 0x03u && byte) {
+    sendToFront(make_cv_access_long_verify_service_packet(cv_addr, *byte),
+                program_packet_count);
     if (serviceReceiveBit() == true) return byte;
   }
 
   return std::nullopt;
 }
 
-///
+/// \todo document
 std::optional<uint8_t> Service::serviceWrite(uint16_t cv_addr, uint8_t byte) {
-  sendToFront(make_cv_access_long_write_service_packet(cv_addr, byte), 7uz);
+  sendToFront(make_cv_access_long_write_service_packet(cv_addr, byte),
+              programPacketCount());
 
   if (serviceReceiveBit() == true) return byte;
 
   return std::nullopt;
 }
 
-///
+/// \todo document
+/// Depending on the DCC settings we might need to wait a long ass time...
 std::optional<bool> Service::serviceReceiveBit() {
   bool bit;
   if (xMessageBufferReceive(out::rx_message_buffer.handle,
                             &bit,
                             sizeof(bit),
-                            pdMS_TO_TICKS(2000u)) == sizeof(bit))
+                            pdMS_TO_TICKS(std::numeric_limits<uint8_t>::max() *
+                                          10u)) == sizeof(bit))
     return bit;
   else return std::nullopt;
 }
 
-///
-std::optional<uint8_t> Service::serviceReceiveByte() {
-  uint8_t value{};
+/// \todo document
+std::optional<uint8_t> Service::serviceReceiveByte(bool bit_verify_to_1) {
+  uint8_t byte{};
   for (auto i{0uz}; i < CHAR_BIT; ++i)
     if (auto const bit{serviceReceiveBit()})
-      value |= static_cast<uint8_t>(*bit << i);
+      byte |= static_cast<uint8_t>((*bit == bit_verify_to_1) << i);
     else return std::nullopt;
-  return value;
+  return byte;
 }
 
-///
+/// \todo document
 void Service::sendToFront(Packet const& packet, size_t n) {
   /*
   This is actually WAY more involved, we need to copy the entire back_handle
@@ -413,14 +468,14 @@ void Service::sendToFront(Packet const& packet, size_t n) {
       out::tx_message_buffer.front_handle, data(packet), size(packet), 0u));
 }
 
-///
+/// \todo document
 void Service::sendToBack(Packet const& packet, size_t n) {
   for (auto i{0uz}; i < n; ++i)
     while (!xMessageBufferSend(
       out::tx_message_buffer.back_handle, data(packet), size(packet), 0u));
 }
 
-///
+/// \todo document
 z21::LocoInfo::Mode Service::locoMode(uint16_t addr) {
   std::lock_guard lock{_internal_mutex};
   auto& loco{_locos[addr]};
@@ -433,12 +488,12 @@ z21::LocoInfo::Mode Service::locoMode(uint16_t addr) {
   return loco.mode;
 }
 
-///
+/// \todo document
 void Service::locoMode(uint16_t, z21::LocoInfo::Mode mode) {
   if (mode == z21::LocoInfo::MM) LOGW("MM not supported");
 }
 
-///
+/// \todo document
 void Service::function(uint16_t addr, uint32_t mask, uint32_t state) {
   {
     std::lock_guard lock{_internal_mutex};
@@ -459,7 +514,7 @@ void Service::function(uint16_t addr, uint32_t mask, uint32_t state) {
   broadcastLocoInfo(addr);
 }
 
-///
+/// \todo document
 void Service::drive(uint16_t addr,
                     z21::LocoInfo::SpeedSteps speed_steps,
                     uint8_t rvvvvvvv) {
@@ -482,7 +537,7 @@ void Service::drive(uint16_t addr,
   broadcastLocoInfo(addr);
 }
 
-///
+/// \todo document
 z21::LocoInfo Service::locoInfo(uint16_t addr) {
   std::lock_guard lock{_internal_mutex};
   auto& loco{_locos[addr]};
@@ -495,79 +550,96 @@ z21::LocoInfo Service::locoInfo(uint16_t addr) {
   return loco;
 }
 
-///
+/// \todo document
 void Service::broadcastLocoInfo(uint16_t addr) {
   _z21_dcc_service->broadcastLocoInfo(addr);
 }
 
-///
+/// \todo document
 bool Service::cvRead(uint16_t cv_addr) {
   if (full(_cv_request_deque)) return false;
   _cv_request_deque.push_back({.cv_addr = cv_addr});
   return true;
 }
 
-///
+/// \todo document
 bool Service::cvWrite(uint16_t cv_addr, uint8_t byte) {
   if (full(_cv_request_deque)) return false;
   _cv_request_deque.push_back({.cv_addr = cv_addr, .byte = byte});
   return true;
 }
 
-///
+/// \todo document
 void Service::cvPomRead(uint16_t addr, uint16_t cv_addr) {
   if (full(_cv_pom_request_deque)) return cvNack();
 
-  // TODO number of packets should be setting
-  sendToFront(make_cv_access_long_verify_packet(addr, cv_addr), 7uz);
+  auto const program_packet_count{programPacketCount()};
+  sendToFront(make_cv_access_long_verify_packet(addr, cv_addr),
+              program_packet_count);
 
   _cv_pom_request_deque.push_back(
     {.then = xTaskGetTickCount() + pdMS_TO_TICKS(500u),  // See RCN-217
      .addr = addr,
      .cv_addr = cv_addr});
 
-  // TODO reset loco prio here
+  /// \todo reset loco prio here
 
   // Mandatory delay
-  vTaskDelay(pdMS_TO_TICKS((7u + 1u) * 10u));  // ~10ms per packet
+  vTaskDelay(
+    pdMS_TO_TICKS((program_packet_count + 1u) * 10u));  // ~10ms per packet
 }
 
-///
+/// \todo document
 void Service::cvPomWrite(uint16_t addr, uint16_t cv_addr, uint8_t byte) {
-  // TODO number of packets should be setting
-  sendToFront(make_cv_access_long_write_packet(addr, cv_addr, byte), 7uz);
+  auto const program_packet_count{programPacketCount()};
+  sendToFront(make_cv_access_long_write_packet(addr, cv_addr, byte),
+              program_packet_count);
 
   // Mandatory delay
-  vTaskDelay(pdMS_TO_TICKS((7u + 1u) * 10u));  // ~10ms per packet
+  vTaskDelay(
+    pdMS_TO_TICKS((program_packet_count + 1u) * 10u));  // ~10ms per packet
 }
 
-///
-void Service::cvNackShortCircuit() { _z21_dcc_service->cvNackShortCircuit(); }
+/// \todo document
+void Service::cvNackShortCircuit() {
+  _z21_dcc_service->cvNackShortCircuit();
+  LOGI("cvNackShortCircuit");
+}
 
-///
-void Service::cvNack() { _z21_dcc_service->cvNack(); }
+/// \todo document
+void Service::cvNack() {
+  _z21_dcc_service->cvNack();
+  LOGI("cvNack");
+}
 
-///
+/// \todo document
 void Service::cvAck(uint16_t cv_addr, uint8_t byte) {
   _z21_dcc_service->cvAck(cv_addr, byte);
+  LOGI("cvAck %d %d", cv_addr, byte);
 }
 
-///
+/// \todo document
 void Service::resume() {
-  auto const packet{mode.load() == Mode::DCCOperations ? make_idle_packet()
-                                                       : make_reset_packet()};
+  auto const packet{state.load() == State::DCCOperations ? make_idle_packet()
+                                                         : make_reset_packet()};
   while (xMessageBufferSpacesAvailable(out::tx_message_buffer.back_handle) >
          out::tx_message_buffer.size * 0.5)
     sendToBack(packet);
   LOGI_TASK_RESUME(out::track::dcc::task.handle);
 }
 
-///
+/// \todo document
 void Service::suspend() {
   _priority_count = 0uz;
   _cv_request_deque.clear();
   _cv_pom_request_deque.clear();
   _z21_system_service->broadcastTrackPowerOff();
+}
+
+/// \todo document
+uint8_t Service::programPacketCount() const {
+  mem::nvs::Settings nvs;
+  return nvs.getDccProgramPacketCount();
 }
 
 }  // namespace dcc

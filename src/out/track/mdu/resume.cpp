@@ -1,10 +1,15 @@
+/// Initialize peripherals when resuming MDU task
+///
+/// \file   out/track/mdu/resume.cpp
+/// \author Vincent Hamp
+/// \date   10/04/2024
+
 #include "resume.hpp"
 #include <driver/gptimer.h>
-#include <rmt_mdu_encoder.h>
 
 namespace out::track::mdu {
 
-/// TODO
+/// \todo document
 esp_err_t init_encoder(mdu_encoder_config_t const& encoder_config) {
   assert(!encoder);
   return rmt_new_mdu_encoder(&encoder_config, &encoder);
@@ -12,21 +17,23 @@ esp_err_t init_encoder(mdu_encoder_config_t const& encoder_config) {
 
 namespace {
 
-/// TODO
+/// \todo document
 esp_err_t init_alarm() {
   ESP_ERROR_CHECK(gptimer_enable(gptimer));
   return gptimer_start(gptimer);
 }
 
-/// TODO
+/// \todo document
 esp_err_t init_gpio(gpio_isr_t gpio_isr_handler) {
   ESP_ERROR_CHECK(gpio_isr_handler_add(ack_gpio_num, gpio_isr_handler, NULL));
-  return gpio_set_level(enable_gpio_num, 1u);
+  ESP_ERROR_CHECK(gpio_set_level(enable_gpio_num, 1u));
+  vTaskDelay(pdMS_TO_TICKS(20u));
+  return gpio_set_level(right_force_low_gpio_num, 0u);
 }
 
 }  // namespace
 
-/// TODO
+/// \todo document
 esp_err_t resume(mdu_encoder_config_t const& encoder_config,
                  gpio_isr_t gpio_isr_handler) {
   ESP_ERROR_CHECK(init_encoder(encoder_config));

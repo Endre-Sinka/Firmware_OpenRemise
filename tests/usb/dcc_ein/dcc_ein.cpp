@@ -1,6 +1,5 @@
 #include "dcc_ein_test.hpp"
-#include "usb/dcc_ein/rx_task_function.hpp"
-#include "usb/dcc_ein/tx_task_function.hpp"
+#include "usb/dcc_ein/task_function.hpp"
 
 TEST_F(UsbDccEinTest, receive_timeout) {
   EXPECT_FALSE(usb::dcc_ein::receive_dcc_packet());

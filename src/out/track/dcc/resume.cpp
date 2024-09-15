@@ -11,19 +11,19 @@
 
 namespace out::track::dcc {
 
-/// TODO
+/// \todo document
 esp_err_t init_encoder(dcc_encoder_config_t const& encoder_config) {
   assert(!encoder);
   return rmt_new_dcc_encoder(&encoder_config, &encoder);
 }
 
-/// TODO
+/// \todo document
 esp_err_t init_rmt(rmt_tx_done_callback_t rmt_cb) {
   rmt_tx_event_callbacks_t cbs{.on_trans_done = rmt_cb};
   return rmt_tx_register_event_callbacks(channel, &cbs, NULL);
 }
 
-/// TODO
+/// \todo document
 esp_err_t init_alarm(gptimer_alarm_cb_t gptimer_cb) {
   gptimer_event_callbacks_t cbs{.on_alarm = gptimer_cb};
   ESP_ERROR_CHECK(gptimer_register_event_callbacks(gptimer, &cbs, NULL));
@@ -31,7 +31,7 @@ esp_err_t init_alarm(gptimer_alarm_cb_t gptimer_cb) {
   return gptimer_start(gptimer);
 }
 
-/// TODO
+/// \todo document
 esp_err_t init_bidi() {
   //
   static constexpr uart_config_t uart_config{
@@ -52,10 +52,14 @@ esp_err_t init_bidi() {
                       UART_PIN_NO_CHANGE);
 }
 
-/// TODO
-esp_err_t init_gpio() { return gpio_set_level(enable_gpio_num, 1u); }
+/// \todo document
+esp_err_t init_gpio() {
+  ESP_ERROR_CHECK(gpio_set_level(enable_gpio_num, 1u));
+  vTaskDelay(pdMS_TO_TICKS(20u));
+  return gpio_set_level(right_force_low_gpio_num, 0u);
+}
 
-/// TODO
+/// \todo document
 esp_err_t resume(dcc_encoder_config_t const& encoder_config,
                  rmt_tx_done_callback_t rmt_cb,
                  gptimer_alarm_cb_t gptimer_cb) {

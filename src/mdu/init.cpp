@@ -16,9 +16,9 @@ esp_err_t init(BaseType_t xCoreID) {
   if (http::sta::service) {
     service = std::make_shared<Service>(xCoreID);
     http::sta::service->subscribe(
-      {.uri = "/mdu/firmware/"}, service, &Service::firmwareSocket);
-    http::sta::service->subscribe(
       {.uri = "/mdu/zpp/"}, service, &Service::zppSocket);
+    http::sta::service->subscribe(
+      {.uri = "/mdu/zsu/"}, service, &Service::zsuSocket);
   }
   return ESP_OK;
 }

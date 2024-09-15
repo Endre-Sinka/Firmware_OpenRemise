@@ -9,20 +9,20 @@
 
 namespace mem::nvs {
 
-/// TODO
+/// \todo document
 Base::Base(char const* namespace_name, nvs_open_mode_t open_mode)
   : _namespace_name{namespace_name} {
   assert(namespace_name);
   ESP_ERROR_CHECK(nvs_open(namespace_name, open_mode, &_handle));
 }
 
-/// TODO
+/// \todo document
 Base::~Base() {
   if (_commit_pending) ESP_ERROR_CHECK(nvs_commit(_handle));
   nvs_close(_handle);
 }
 
-/// TODO
+/// \todo document
 ///
 /// std::string enforces null-terminated string
 esp_err_t Base::erase(std::string const& key) {
@@ -32,14 +32,14 @@ esp_err_t Base::erase(std::string const& key) {
   return err;
 }
 
-/// TODO
+/// \todo document
 esp_err_t Base::eraseAll() {
   auto const err{nvs_erase_all(_handle)};
   if (err == ESP_OK) _commit_pending = true;
   return err;
 }
 
-/// TODO
+/// \todo document
 std::string Base::getBlob(std::string const& key) const {
   assert(size(key) < NVS_KEY_NAME_MAX_SIZE);
   size_t len;
@@ -49,7 +49,7 @@ std::string Base::getBlob(std::string const& key) const {
   return blob;
 }
 
-/// TODO
+/// \todo document
 esp_err_t Base::setBlob(std::string const& key, std::string_view str) {
   assert(size(key) < NVS_KEY_NAME_MAX_SIZE);
   auto const err{nvs_set_blob(_handle, key.c_str(), data(str), size(str))};
@@ -57,7 +57,7 @@ esp_err_t Base::setBlob(std::string const& key, std::string_view str) {
   return err;
 }
 
-/// TODO
+/// \todo document
 uint8_t Base::getU8(std::string const& key) const {
   assert(size(key) < NVS_KEY_NAME_MAX_SIZE);
   uint8_t value;
@@ -65,7 +65,7 @@ uint8_t Base::getU8(std::string const& key) const {
   return value;
 }
 
-/// TODO
+/// \todo document
 esp_err_t Base::setU8(std::string const& key, uint8_t value) {
   assert(size(key) < NVS_KEY_NAME_MAX_SIZE);
   auto const err{nvs_set_u8(_handle, key.c_str(), value)};
@@ -73,7 +73,7 @@ esp_err_t Base::setU8(std::string const& key, uint8_t value) {
   return err;
 }
 
-/// TODO
+/// \todo document
 uint8_t Base::getU16(std::string const& key) const {
   assert(size(key) < NVS_KEY_NAME_MAX_SIZE);
   uint16_t value;
@@ -81,7 +81,7 @@ uint8_t Base::getU16(std::string const& key) const {
   return value;
 }
 
-/// TODO
+/// \todo document
 esp_err_t Base::setU16(std::string const& key, uint16_t value) {
   assert(size(key) < NVS_KEY_NAME_MAX_SIZE);
   auto const err{nvs_set_u16(_handle, key.c_str(), value)};

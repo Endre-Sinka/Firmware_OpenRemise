@@ -15,11 +15,11 @@ dependencies:
     rules:
       - if: "target != linux"
   zimo-elektronik/dcc:
-    version: "0.35.2"
+    version: "0.37.0"
   zimo-elektronik/mdu:
-    version: "0.15.4"
+    version: "0.16.1"
   Frontend:
-    version: master
+    version: dev
     rules:
       - if: "target != linux"
     git: https://github.com/OpenRemise/Frontend.git

@@ -14,7 +14,7 @@
 
 namespace settings {
 
-/// TODO
+/// \todo document
 http::Response Service::getRequest(http::Request const& req) {
   mem::nvs::Settings nvs;
 
@@ -30,11 +30,21 @@ http::Response Service::getRequest(http::Request const& req) {
   doc["http_rx_timeout"] = nvs.getHttpReceiveTimeout();
   doc["http_tx_timeout"] = nvs.getHttpTransmitTimeout();
   doc["usb_rx_timeout"] = nvs.getUsbReceiveTimeout();
-  doc["current_limit"] = nvs.getCurrentLimit();
+  doc["current_limit"] = std::to_underlying(nvs.getCurrentLimit());
+  doc["current_sc_time"] = nvs.getCurrentShortCircuitTime();
   doc["dcc_preamble"] = nvs.getDccPreamble();
   doc["dcc_bit1_dur"] = nvs.getDccBit1Duration();
   doc["dcc_bit0_dur"] = nvs.getDccBit0Duration();
   doc["dcc_bidibit_dur"] = nvs.getDccBiDiBitDuration();
+  doc["dcc_prog_type"] = nvs.getDccProgrammingType();
+  doc["dcc_strtp_rs_pc"] = nvs.getDccStartupResetPacketCount();
+  doc["dcc_cntn_rs_pc"] = nvs.getDccContinueResetPacketCount();
+  doc["dcc_prog_pc"] = nvs.getDccProgramPacketCount();
+  doc["dcc_verify_bit1"] = nvs.getDccBitVerifyTo1();
+  doc["dcc_ack_cur"] = nvs.getDccProgrammingAckCurrent();
+  doc["dcc_flags"] = nvs.getDccFlags();
+  doc["mdu_preamble"] = nvs.getMduPreamble();
+  doc["mdu_ackreq"] = nvs.getMduAckreq();
 
   //
   std::string json;
@@ -44,7 +54,7 @@ http::Response Service::getRequest(http::Request const& req) {
   return json;
 }
 
-/// TODO
+/// \todo document
 http::Response Service::postRequest(http::Request const& req) {
   LOGI("%s", __PRETTY_FUNCTION__);
   LOGI("uri %s", req.uri.c_str());
@@ -76,20 +86,25 @@ http::Response Service::postRequest(http::Request const& req) {
         nvs.setStationPassword(str) != ESP_OK)
       return std::unexpected<std::string>{"422 Unprocessable Entity"};
 
-  if (JsonVariantConst v{doc["http_rx_timeout"]}; v.is<uint16_t>())
-    if (nvs.setHttpReceiveTimeout(v.as<uint16_t>()) != ESP_OK)
+  if (JsonVariantConst v{doc["http_rx_timeout"]}; v.is<uint8_t>())
+    if (nvs.setHttpReceiveTimeout(v.as<uint8_t>()) != ESP_OK)
       return std::unexpected<std::string>{"422 Unprocessable Entity"};
 
-  if (JsonVariantConst v{doc["http_tx_timeout"]}; v.is<uint16_t>())
-    if (nvs.setHttpTransmitTimeout(v.as<uint16_t>()) != ESP_OK)
+  if (JsonVariantConst v{doc["http_tx_timeout"]}; v.is<uint8_t>())
+    if (nvs.setHttpTransmitTimeout(v.as<uint8_t>()) != ESP_OK)
       return std::unexpected<std::string>{"422 Unprocessable Entity"};
 
-  if (JsonVariantConst v{doc["usb_rx_timeout"]}; v.is<uint16_t>())
-    if (nvs.setUsbReceiveTimeout(v.as<uint16_t>()) != ESP_OK)
+  if (JsonVariantConst v{doc["usb_rx_timeout"]}; v.is<uint8_t>())
+    if (nvs.setUsbReceiveTimeout(v.as<uint8_t>()) != ESP_OK)
       return std::unexpected<std::string>{"422 Unprocessable Entity"};
 
   if (JsonVariantConst v{doc["current_limit"]}; v.is<uint8_t>())
-    if (nvs.setCurrentLimit(v.as<uint8_t>()) != ESP_OK)
+    if (nvs.setCurrentLimit(
+          static_cast<out::track::CurrentLimit>(v.as<uint8_t>())) != ESP_OK)
+      return std::unexpected<std::string>{"422 Unprocessable Entity"};
+
+  if (JsonVariantConst v{doc["current_sc_time"]}; v.is<uint8_t>())
+    if (nvs.setCurrentShortCircuitTime(v.as<uint8_t>()) != ESP_OK)
       return std::unexpected<std::string>{"422 Unprocessable Entity"};
 
   if (JsonVariantConst v{doc["dcc_preamble"]}; v.is<uint8_t>())
@@ -104,8 +119,44 @@ http::Response Service::postRequest(http::Request const& req) {
     if (nvs.setDccBit0Duration(v.as<uint8_t>()) != ESP_OK)
       return std::unexpected<std::string>{"422 Unprocessable Entity"};
 
-  if (JsonVariantConst v{doc["dcc_bidibit_dur"]}; v.is<bool>())
+  if (JsonVariantConst v{doc["dcc_bidibit_dur"]}; v.is<uint8_t>())
     if (nvs.setDccBiDiBitDuration(v.as<uint8_t>()) != ESP_OK)
+      return std::unexpected<std::string>{"422 Unprocessable Entity"};
+
+  if (JsonVariantConst v{doc["dcc_prog_type"]}; v.is<uint8_t>())
+    if (nvs.setDccProgrammingType(v.as<uint8_t>()) != ESP_OK)
+      return std::unexpected<std::string>{"422 Unprocessable Entity"};
+
+  if (JsonVariantConst v{doc["dcc_strtp_rs_pc"]}; v.is<uint8_t>())
+    if (nvs.setDccStartupResetPacketCount(v.as<uint8_t>()) != ESP_OK)
+      return std::unexpected<std::string>{"422 Unprocessable Entity"};
+
+  if (JsonVariantConst v{doc["dcc_cntn_rs_pc"]}; v.is<uint8_t>())
+    if (nvs.setDccContinueResetPacketCount(v.as<uint8_t>()) != ESP_OK)
+      return std::unexpected<std::string>{"422 Unprocessable Entity"};
+
+  if (JsonVariantConst v{doc["dcc_prog_pc"]}; v.is<uint8_t>())
+    if (nvs.setDccProgramPacketCount(v.as<uint8_t>()) != ESP_OK)
+      return std::unexpected<std::string>{"422 Unprocessable Entity"};
+
+  if (JsonVariantConst v{doc["dcc_verify_bit1"]}; v.is<bool>())
+    if (nvs.setDccBitVerifyTo1(v.as<bool>()) != ESP_OK)
+      return std::unexpected<std::string>{"422 Unprocessable Entity"};
+
+  if (JsonVariantConst v{doc["dcc_ack_cur"]}; v.is<uint8_t>())
+    if (nvs.setDccProgrammingAckCurrent(v.as<uint8_t>()) != ESP_OK)
+      return std::unexpected<std::string>{"422 Unprocessable Entity"};
+
+  if (JsonVariantConst v{doc["dcc_flags"]}; v.is<uint8_t>())
+    if (nvs.setDccFlags(v.as<uint8_t>()) != ESP_OK)
+      return std::unexpected<std::string>{"422 Unprocessable Entity"};
+
+  if (JsonVariantConst v{doc["mdu_preamble"]}; v.is<uint8_t>())
+    if (nvs.setMduPreamble(v.as<uint8_t>()) != ESP_OK)
+      return std::unexpected<std::string>{"422 Unprocessable Entity"};
+
+  if (JsonVariantConst v{doc["mdu_ackreq"]}; v.is<uint8_t>())
+    if (nvs.setMduAckreq(v.as<uint8_t>()) != ESP_OK)
       return std::unexpected<std::string>{"422 Unprocessable Entity"};
 
   return {};

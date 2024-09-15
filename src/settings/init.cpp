@@ -18,7 +18,7 @@ std::shared_ptr<Service> service;
 
 }  // namespace
 
-/// TODO
+/// \todo document
 esp_err_t init() {
   if (http::sta::service) {
     service = std::make_shared<Service>();

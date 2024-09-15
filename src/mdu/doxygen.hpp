@@ -10,7 +10,7 @@ namespace mdu {
 
 /// \page page_mdu MDU
 /// \tableofcontents
-/// TODO MDU page
+/// \todo document MDU page
 ///
 
 }  // namespace mdu

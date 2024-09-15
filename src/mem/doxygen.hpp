@@ -10,7 +10,7 @@ namespace mem {
 
 /// \page page_mem Memory
 /// \tableofcontents
-/// TODO mem page
+/// \todo document mem page
 ///
 
 }  // namespace mem

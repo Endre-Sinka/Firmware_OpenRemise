@@ -2,7 +2,7 @@ import random, string
 from websocket import create_connection
 
 
-ws = create_connection("ws://wulf.local/zusi/")
+ws = create_connection("ws://remise.local/zusi/")
 message = bytearray([i % 256 for i in range(0, 100)])
 # message = "".join(random.choices(string.ascii_uppercase + string.digits, k=1024))
 for i in range(0, 10):

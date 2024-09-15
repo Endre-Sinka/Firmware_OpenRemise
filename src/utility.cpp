@@ -59,13 +59,13 @@ void bug_led(uint32_t level) {
 }
 
 ///
-uint16_t get_http_receive_timeout() {
+uint32_t http_receive_timeout2ms() {
   mem::nvs::Settings nvs;
   return nvs.getHttpReceiveTimeout() * 1000u;
 }
 
 ///
-uint16_t get_usb_receive_timeout() {
+uint32_t usb_receive_timeout2ms() {
   mem::nvs::Settings nvs;
   return nvs.getUsbReceiveTimeout() * 1000u;
 }

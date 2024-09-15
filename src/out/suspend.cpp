@@ -1,4 +1,4 @@
-/// TODO
+/// \todo document
 ///
 /// \file   out/suspend.cpp
 /// \author Vincent Hamp
@@ -9,7 +9,7 @@
 
 namespace out {
 
-/// TODO
+/// \todo document
 void reset_queue_and_message_buffers() {
   xQueueReset(track::rx_queue.handle);
   while (!xMessageBufferReset(rx_message_buffer.handle)) {
@@ -24,10 +24,10 @@ void reset_queue_and_message_buffers() {
   }
 }
 
-/// TODO
+/// \todo document
 esp_err_t suspend() {
   reset_queue_and_message_buffers();
-  mode.store(Mode::Suspended);
+  if (!(state.load() & State::ShortCircuit)) state.store(State::Suspended);
   return ESP_OK;
 }
 

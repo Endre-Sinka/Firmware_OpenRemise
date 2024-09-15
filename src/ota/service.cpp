@@ -14,11 +14,12 @@
 
 namespace ota {
 
-/// TODO
+/// \todo document
+/// \bug should this broadcast Z21 programming mode?
 Service::Service(BaseType_t xCoreID) {
   if (!xTaskCreatePinnedToCore(make_tramp(this, &Service::taskFunction),
                                task.name,
-                               task.stack_depth,
+                               task.stack_size,
                                NULL,
                                task.priority,
                                &task.handle,
@@ -26,21 +27,21 @@ Service::Service(BaseType_t xCoreID) {
     assert(false);
 }
 
-/// TODO
+/// \todo document
 Service::~Service() {
   if (task.handle) vTaskDelete(task.handle);
 }
 
-/// TODO
+/// \todo document
 esp_err_t Service::socket(http::Message& msg) {
   //
-  if (auto expected{Mode::Suspended};
+  if (auto expected{State::Suspended};
       msg.type != HTTPD_WS_TYPE_CLOSE &&
-      mode.compare_exchange_strong(expected, Mode::OTA))
+      state.compare_exchange_strong(expected, State::OTA))
     LOGI_TASK_RESUME(task.handle);
 
   //
-  if (mode.load() == Mode::OTA) {
+  if (state.load() == State::OTA) {
     _queue.push(std::move(msg));
     return ESP_OK;
   }
@@ -49,19 +50,19 @@ esp_err_t Service::socket(http::Message& msg) {
     return ESP_FAIL;
 }
 
-/// TODO
+/// \todo document
 void Service::taskFunction(void*) {
-  for (;;) {
-    LOGI_TASK_SUSPEND(task.handle);
-    loop();
-  }
+  for (;;) switch (state.load()) {
+      case State::OTA: loop(); break;
+      default: LOGI_TASK_SUSPEND(task.handle); break;
+    }
 }
 
-/// TODO
+/// \todo document
 void Service::loop() {
   bug_led(true);
 
-  auto const timeout{get_http_receive_timeout()};
+  auto const timeout{http_receive_timeout2ms()};
 
   for (;;) {
     TickType_t then{xTaskGetTickCount() + pdMS_TO_TICKS(timeout)};
@@ -100,7 +101,7 @@ void Service::loop() {
   }
 }
 
-/// TODO
+/// \todo document
 uint8_t Service::write(std::vector<uint8_t> const& payload) {
   //
   if (!_partition) _partition = esp_ota_get_next_update_partition(NULL);
@@ -122,7 +123,7 @@ uint8_t Service::write(std::vector<uint8_t> const& payload) {
   return ack;
 }
 
-/// TODO
+/// \todo document
 void Service::end() {
   auto err{esp_ota_end(_handle)};
   if (err == ESP_OK) err = esp_ota_set_boot_partition(_partition);
@@ -134,15 +135,15 @@ void Service::end() {
   LOGE("Update failed %s", esp_err_to_name(err));
 }
 
-/// TODO
+/// \todo document
 void Service::close() {
   _queue = {};
   _partition = NULL;
   if (_handle) esp_ota_abort(_handle);
   _handle = {};
   _ack = {};
-  if (auto expected{Mode::OTA};
-      !mode.compare_exchange_strong(expected, Mode::Suspended))
+  if (auto expected{State::OTA};
+      !state.compare_exchange_strong(expected, State::Suspended))
     assert(false);
   bug_led(false);
 }

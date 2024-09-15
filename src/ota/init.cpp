@@ -20,7 +20,7 @@ std::shared_ptr<Service> service;
 
 }  // namespace
 
-/// TODO
+/// \todo document
 esp_err_t init(BaseType_t xCoreID) {
   esp_partition_t const* boot_partition{esp_ota_get_boot_partition()};
   esp_partition_t const* running_partition{esp_ota_get_running_partition()};

@@ -5,11 +5,11 @@
 
 namespace mdu {
 
-/// TODO
+/// \todo document
 Service::Service(BaseType_t xCoreID) {
   if (!xTaskCreatePinnedToCore(make_tramp(this, &Service::taskFunction),
                                task.name,
-                               task.stack_depth,
+                               task.stack_size,
                                NULL,
                                task.priority,
                                &task.handle,
@@ -17,29 +17,24 @@ Service::Service(BaseType_t xCoreID) {
     assert(false);
 }
 
-/// TODO
+/// \todo document
 Service::~Service() {
   if (task.handle) vTaskDelete(task.handle);
 }
 
-/// TODO
+/// \todo document
 void Service::taskFunction(void*) {
-  for (;;) {
-    LOGI_TASK_SUSPEND(task.handle);
-    loop();
-  }
-}
-
-/// TODO
-void Service::loop() {
-  for (;;) {
-    switch (mode.load()) {
-      case Mode::MDUFirmware: FirmwareService::loop(); break;
-      case Mode::MDUZpp: ZppService::loop(); break;
-      default: return;
+  for (;;) switch (state.load()) {
+      case State::MDUZpp:
+        ZppService::loop();
+        vTaskDelay(pdMS_TO_TICKS(100u));
+        break;
+      case State::MDUZsu:
+        ZsuService::loop();
+        vTaskDelay(pdMS_TO_TICKS(100u));
+        break;
+      default: LOGI_TASK_SUSPEND(task.handle); break;
     }
-    vTaskDelay(pdMS_TO_TICKS(100u));
-  }
 }
 
 }  // namespace mdu

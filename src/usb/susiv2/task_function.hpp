@@ -1,6 +1,6 @@
-/// SUSIV2 protocol receive task function
+/// SUSIV2 protocol task function
 ///
-/// \file   usb/susiv2/rx_task_function.hpp
+/// \file   usb/susiv2/task_function.hpp
 /// \author Vincent Hamp
 /// \date   10/02/2023
 
@@ -8,6 +8,6 @@
 
 namespace usb::susiv2 {
 
-void rx_task_function(void*);
+void task_function(void*);
 
 }  // namespace usb::susiv2

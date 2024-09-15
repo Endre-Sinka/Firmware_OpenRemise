@@ -26,8 +26,6 @@ private:
   // This gets called by FreeRTOS
   void taskFunction(void*);
 
-  void loop();
-
   void operationsLoop();
   void operationsDcc();
   void operationsBiDi();
@@ -36,7 +34,7 @@ private:
   std::optional<uint8_t> serviceRead(uint16_t cv_addr);
   std::optional<uint8_t> serviceWrite(uint16_t cv_addr, uint8_t byte);
   std::optional<bool> serviceReceiveBit();
-  std::optional<uint8_t> serviceReceiveByte();
+  std::optional<uint8_t> serviceReceiveByte(bool bit_verify_to_1);
 
   void sendToFront(Packet const& packet, size_t n = 1uz);
   void sendToBack(Packet const& packet, size_t n = 1uz);
@@ -63,11 +61,13 @@ private:
   void resume();
   void suspend();
 
+  uint8_t programPacketCount() const;
+
   Locos _locos;
   std::mutex _internal_mutex;
   std::shared_ptr<z21::server::intf::System> _z21_system_service;
   std::shared_ptr<z21::server::intf::Dcc> _z21_dcc_service;
-  size_t _priority_count{};
+  uint8_t _priority_count{Loco::min_priority};
 
   //
   struct CvRequest {

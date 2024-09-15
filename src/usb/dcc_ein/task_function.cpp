@@ -1,10 +1,10 @@
-/// DCC_EIN protocol receive task function
+/// DCC_EIN protocol task function
 ///
-/// \file   usb/dcc_ein/rx_task_function.cpp
+/// \file   usb/dcc_ein/task_function.cpp
 /// \author Vincent Hamp
 /// \date   10/02/2023
 
-#include "rx_task_function.hpp"
+#include "task_function.hpp"
 #include <array>
 #include <charconv>
 #include <cstring>
@@ -29,7 +29,7 @@ std::optional<dcc::Packet> receive_dcc_packet() {
       xStreamBufferReceive(rx_stream_buffer.handle,
                            &stack[count],
                            1uz,
-                           pdMS_TO_TICKS(rx_task.timeout))};
+                           pdMS_TO_TICKS(task.timeout))};
     count += bytes_received;
     if (!bytes_received || count >= size(stack)) return std::nullopt;
 
@@ -73,7 +73,7 @@ void send_idle_packets_to_back() {
     send_to_back(idle_packet);
 }
 
-/// TODO
+/// \todo document
 void ack_senddcc_str() {
   auto const space_used{
     out::tx_message_buffer.size -
@@ -85,9 +85,37 @@ void ack_senddcc_str() {
                     pdMS_TO_TICKS(tx_task.timeout));
 }
 
+/// Receive addressed datagram
+///
+/// \return Addressed BiDi datagram received from out::track::rx_queue
+/// \return std::nullopt on timeout
+std::optional<ulf::dcc_ein::AddressedDatagram> receive_addressed_datagram() {
+  out::track::RxQueue::value_type item;
+  if (xQueueReceive(
+        out::track::rx_queue.handle, &item, pdMS_TO_TICKS(task.timeout)))
+    return ulf::dcc_ein::AddressedDatagram{
+      .addr = dcc::decode_address(item.packet), .datagram = item.datagram};
+  else return std::nullopt;
+}
+
+/// Transmit addressed datagram
+///
+/// The addressed datagram is converted to a sendbidi string with pattern
+/// `sendbidi [ubsalrtei][0-9a-fA-F]{4}( [0-9a-fA-F]{2}){8}\r` prior to
+/// transmission. The string is then send to usb::tx_stream_buffer.
+///
+/// \param  addr_datagram Addressed BiDi datagram received from
+///                       out::track::rx_queue
+void transmit_addressed_datagram(
+  ulf::dcc_ein::AddressedDatagram const& addr_datagram) {
+  auto const str{ulf::dcc_ein::addressed_datagram2sendbidi_str(addr_datagram)};
+  xStreamBufferSend(
+    tx_stream_buffer.handle, data(str), size(str), pdMS_TO_TICKS(task.timeout));
+}
+
 /// Actual usb::dcc_ein::rx_task loop
 void loop() {
-  auto const timeout{get_usb_receive_timeout()};
+  auto const timeout{usb_receive_timeout2ms()};
   TickType_t then{xTaskGetTickCount() + pdMS_TO_TICKS(timeout)};
 
   for (;;) {
@@ -101,6 +129,12 @@ void loop() {
       send_to_front(*packet);
       ack_senddcc_str();
     }
+
+    // Transmit datagrams
+    if (auto const addr_datagram{receive_addressed_datagram()};
+        addr_datagram && std::ranges::any_of(addr_datagram->datagram,
+                                             [](uint8_t b) { return b; }))
+      transmit_addressed_datagram(*addr_datagram);
   }
 }
 
@@ -112,13 +146,13 @@ void loop() {
 /// usb::rx_task_function receives a "DCC_EIN\r" protocol entry string. Once
 /// running scan the CDC character stream for strings with pattern `senddcc(
 /// [\d0-9a-fA-F]{2})+\r` and transmit the data to out::tx_message_buffer.
-void rx_task_function(void*) {
+void task_function(void*) {
   for (;;) {
-    LOGI_TASK_SUSPEND(rx_task.handle);
+    LOGI_TASK_SUSPEND(task.handle);
 
     //
-    if (auto expected{Mode::Suspended};
-        mode.compare_exchange_strong(expected, Mode::DCC_EIN)) {
+    if (auto expected{State::Suspended};
+        state.compare_exchange_strong(expected, State::DCC_EIN)) {
       transmit_ok();
       send_idle_packets_to_back();
       LOGI_TASK_RESUME(out::track::dcc::task.handle);

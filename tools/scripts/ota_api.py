@@ -11,7 +11,7 @@ def read_in_chunks(file, chunk_size=1024):
 
 
 start_time = time.time()
-ws = create_connection("ws://wulf.local/ota/")
+ws = create_connection("ws://remise.local/ota/")
 file_path = os.path.dirname(os.path.abspath(__file__))
 with open(file_path + "/WULF_0.0.1-23-ga317b94.bin", mode="rb") as file:
     for chunk in read_in_chunks(file):

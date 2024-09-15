@@ -1,7 +1,7 @@
 import random, string
 from websocket import create_connection
 
-ws = create_connection("ws://wulf.local/z21/")
+ws = create_connection("ws://remise.local/z21/")
 # message = bytearray([0x07, 0x00, 0x40, 0x00, 0xF1, 0x0A, 0xFB])
 message = bytearray([0x07, 0x00, 0x40, 0x00, 0x21, 0x81, 0xA0])
 for i in range(0, 10):

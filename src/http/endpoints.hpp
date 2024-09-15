@@ -33,7 +33,7 @@ class Endpoints {
   using async_mapped_type = std::vector<std::function<esp_err_t(Message&)>>;
 
 public:
-  /// TODO
+  /// \todo document
   template<typename T, typename F>
   void subscribe(key_type const& key, std::shared_ptr<T> t, F&& f) {
     if constexpr (std::invocable<typename signature<F>::type, Request const&>)
@@ -48,7 +48,7 @@ public:
   }
 
 protected:
-  /// TODO
+  /// \todo document
   Response syncResponse(httpd_req_t* req) {
     auto const key{req2key(req)};
     auto const it{_sync_map.find(key)};
@@ -68,11 +68,11 @@ protected:
       else return std::unexpected<std::string>{"500 Internal Server Error"};
     }
 
-    // TODO properly iterating over vector...
+    /// \todo properly iterating over vector...
     return it->second[0uz](r);
   }
 
-  /// TODO
+  /// \todo document
   esp_err_t asyncResponse(httpd_req_t* req) {
     auto const key{req2key(req)};
     auto const it{_async_map.find(key)};
@@ -93,13 +93,13 @@ protected:
   }
 
 private:
-  /// TODO
+  /// \todo document
   httpd_uri_t req2key(httpd_req_t* req) const {
     return {.uri = req->uri,
             .method = static_cast<httpd_method_t>(req->method)};
   }
 
-  /// TODO
+  /// \todo document
   struct key_compare {
     bool operator()(key_type const& lhs, key_type const& rhs) const {
       return lhs.method != rhs.method
