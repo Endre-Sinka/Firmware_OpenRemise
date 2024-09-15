@@ -5,24 +5,19 @@
 /// \date   26/02/2023
 
 /// \details
-/// Welcome to the OpenRemise [firmware](https://github.com/OpenRemise/Firmware)
-/// documentation. This documentation is intended for developers, for general
-/// information about usage please visit the main page at
-/// [openremise.at](https://openremise.at/).
+/// Welcome to the OpenRemise [Firmware](https://github.com/OpenRemise/Firmware)
+/// documentation.
 ///
-/// The aim of this documentation is to give an overview of the OpenRemise
-/// firmware. This includes topics like design philosophy, configuration,
-/// control flow, modules and their interactions and sometimes even a little bit
-/// of code. The documentation is roughly split into two parts. There is a
-/// global \ref page_getting_started and a \ref page_api_reference part. If you
-/// already know your way around the code base you can safely skip the global
-/// part although it might help understanding the "big picture".
+/// \note This documentation is intended for developers, for general information
+/// about usage please visit the main page at
+/// [openremise.at](https://openremise.at/).
 ///
 // clang-format off
 /// \mainpage Introduction
 /// | Getting Started                                       | API Reference                                 | HW Reference                                 |
 /// | ----------------------------------------------------- | --------------------------------------------- | -------------------------------------------- |
 /// | [![](icons/stopwatch.png)](page_getting_started.html) | [![](icons/api.png)](page_api_reference.html) | [![](icons/pcb.png)](page_hw_reference.html) |
+/// | New to the Firmware source?                           | Bla                                           |                                              |
 // clang-format on
 ///
 // clang-format off

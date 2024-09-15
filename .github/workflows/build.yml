@@ -1,0 +1,26 @@
+name: tests
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4.1.6
+        with:
+          fetch-depth: 0
+      - name: Install prerequisites
+        run: |
+          sudo apt update -y
+          sudo apt install -y doxygen graphviz mscgen
+      - run: cmake -Bbuild
+      - run: cmake --build build --parallel --target FirmwareDocs
+      - run: tar -cvf build.tar build
+      - uses: actions/upload-artifact@v3.1.3
+        with:
+          name: build.tar
+          path: build.tar
