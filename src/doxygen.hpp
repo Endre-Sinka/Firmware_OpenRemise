@@ -6,18 +6,22 @@
 
 /// \details
 /// Welcome to the OpenRemise [Firmware](https://github.com/OpenRemise/Firmware)
-/// documentation.
-///
-/// \note This documentation is intended for developers, for general information
-/// about usage please visit the main page at
-/// [openremise.at](https://openremise.at/).
+/// documentation, the software powering all our boards.
 ///
 // clang-format off
 /// \mainpage Introduction
-/// | Getting Started                                       | API Reference                                 | HW Reference                                 |
-/// | ----------------------------------------------------- | --------------------------------------------- | -------------------------------------------- |
-/// | [![](icons/stopwatch.png)](page_getting_started.html) | [![](icons/api.png)](page_api_reference.html) | [![](icons/pcb.png)](page_hw_reference.html) |
-/// | New to the Firmware source?                           | Bla                                           |                                              |
+/// | Getting Started                                                                                                                                                                        | API Reference                                                                                                                                                                           | HW Reference                                                                                                       |
+/// | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+/// | [![](icons/stopwatch.png)](page_getting_started.html)                                                                                                                                  | [![](icons/api.png)](page_api_reference.html)                                                                                                                                           | [![](icons/pcb.png)](page_hw_reference.html)                                                                       |
+/// | New to the codebase?<br>Check out the \ref page_getting_started <br>guides. Setup a development<br>environment and learn about<br>the firmwares architecture<br>and it's key concepts. | The \ref page_api_reference contains a<br>detailed description of the inner<br>workings of the firmwares<br> individual modules.<br>It assumes an understanding of<br>the key concepts. | Browse schematics and layouts<br>of all supported boards in the<br>\ref page_hw_reference section.<br><br><br><br> |
+///
+/// \note This documentation is intended for developers. General information on usage can be found on the main page at [openremise.at](https://openremise.at/).
+///
+/// <div class="section_buttons">
+/// | Next                      |
+/// | ------------------------: |
+/// | \ref page_getting_started |
+/// </div>
 // clang-format on
 ///
 // clang-format off
@@ -27,6 +31,12 @@
 /// | \subpage page_architecture               | Architecture                                                        |
 /// | \subpage page_program_structure_and_flow | Program structure and flow                                          |
 // clang-format on
+/// \page page_getting_started Getting Started
+/// <div class="section_buttons">
+/// | Previous          | Next                              |
+/// |:------------------|----------------------------------:|
+/// | [Introduction](\ref index) | [Customization](customization.md) |
+/// </div>
 ///
 /// \page page_architecture Architecture
 /// \details \tableofcontents
@@ -264,14 +274,11 @@
 /// \page page_api_reference API Reference
 ///
 /// \page page_hw_reference HW Reference
-///
-/// \page page_kicanvas KiCanvas
-///
-// clang-format off
 /// \htmlonly
 /// <script type="module" src="kicanvas.js"></script>
-/// <kicanvas-embed src="https://github.com/OpenRemise/ESP32S3Board/raw/master/esp32s3board.kicad_sch" controls="basic"> </kicanvas-embed>
+/// <kicanvas-embed controls="full">
+///   <kicanvas-source src="esp32s3board.kicad_sch"></kicanvas-source>
+///   <kicanvas-source src="esp32s3board.kicad_pcb"></kicanvas-source>
+/// </kicanvas-embed>
 /// \endhtmlonly
-// clang-format on
-/// \page page_kicanvas KiCanvas
-/// Works?!
+/// Test
