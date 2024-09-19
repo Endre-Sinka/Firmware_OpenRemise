@@ -7,7 +7,7 @@ on:
     branches: [master]
 
 jobs:
-  build:
+  docs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4.1.6
@@ -19,8 +19,7 @@ jobs:
           sudo apt install -y doxygen graphviz mscgen
       - run: cmake -Bbuild
       - run: cmake --build build --parallel --target FirmwareDocs
-      - run: tar -cvf build.tar build
-      - uses: actions/upload-artifact@v3.1.3
+      - uses: actions/upload-artifact@v4
         with:
-          name: build.tar
-          path: build.tar
+          name: build
+          path: build
